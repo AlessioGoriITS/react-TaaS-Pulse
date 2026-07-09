@@ -43,6 +43,38 @@ CREATE TABLE projects (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE teams (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  focus_area TEXT NOT NULL,
+  lead_employee_id INTEGER,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (lead_employee_id) REFERENCES employees (id) ON DELETE SET NULL
+);
+
+CREATE TABLE team_memberships (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id INTEGER NOT NULL,
+  employee_id INTEGER NOT NULL,
+  team_role TEXT,
+  joined_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (team_id, employee_id),
+  FOREIGN KEY (team_id) REFERENCES teams (id) ON DELETE CASCADE,
+  FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE CASCADE
+);
+
+CREATE TABLE team_projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  team_id INTEGER NOT NULL,
+  project_id INTEGER NOT NULL,
+  assigned_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE (team_id, project_id),
+  FOREIGN KEY (team_id) REFERENCES teams (id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+);
+
 CREATE TABLE project_memberships (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL,
@@ -89,6 +121,11 @@ CREATE TABLE tasks (
 );
 
 CREATE INDEX idx_employees_job_id ON employees (job_id);
+CREATE INDEX idx_teams_lead_employee_id ON teams (lead_employee_id);
+CREATE INDEX idx_team_memberships_team_id ON team_memberships (team_id);
+CREATE INDEX idx_team_memberships_employee_id ON team_memberships (employee_id);
+CREATE INDEX idx_team_projects_team_id ON team_projects (team_id);
+CREATE INDEX idx_team_projects_project_id ON team_projects (project_id);
 CREATE INDEX idx_project_memberships_project_id ON project_memberships (project_id);
 CREATE INDEX idx_project_memberships_employee_id ON project_memberships (employee_id);
 CREATE INDEX idx_sprints_project_id ON sprints (project_id);

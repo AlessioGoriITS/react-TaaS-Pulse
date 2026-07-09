@@ -94,6 +94,37 @@ Important fields:
 This is better than putting a `projects` text column inside `employees`, because it lets
 the app query assignments cleanly and calculate capacity.
 
+### teams
+
+Stores stable delivery squads.
+
+Important fields:
+
+- `id`: internal database id
+- `name`: team name
+- `focus_area`: what kind of work the team usually handles
+- `lead_employee_id`: optional employee who leads the team
+- `notes`: extra team context
+
+A team is useful because a TaaS company usually sells capacity as a group, not only as
+separate individuals.
+
+### team_memberships
+
+Connects employees to teams.
+
+This is another many-to-many table:
+
+- one team has many employees
+- one employee could later belong to more than one team
+
+### team_projects
+
+Connects teams to projects.
+
+This keeps the model flexible. A project can be assigned to a whole team, while
+`project_memberships` can still store the exact employee-level allocation.
+
 ### sprints
 
 Stores time-boxed work periods for a project.

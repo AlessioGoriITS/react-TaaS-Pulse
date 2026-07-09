@@ -41,6 +41,26 @@ VALUES (
   'Budget usage is moving faster than task completion.'
 );
 
+INSERT INTO teams (id, name, focus_area, lead_employee_id, notes)
+VALUES (
+  1,
+  'Portal Delivery Squad',
+  'Customer-facing product delivery',
+  2,
+  'Small cross-functional team covering frontend, backend, UX, and QA.'
+);
+
+INSERT INTO team_memberships (team_id, employee_id, team_role)
+VALUES
+  (1, 1, 'Frontend owner'),
+  (1, 2, 'Team lead and backend owner'),
+  (1, 3, 'UX reviewer'),
+  (1, 4, 'QA owner');
+
+INSERT INTO team_projects (team_id, project_id)
+VALUES
+  (1, 1);
+
 INSERT INTO project_memberships (project_id, employee_id, assigned_role, weekly_allocated_hours)
 VALUES
   (1, 1, 'Frontend owner', 24),

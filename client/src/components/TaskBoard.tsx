@@ -9,7 +9,8 @@ type TaskBoardProps = {
 
 export function TaskBoard({ tasks, teamMembers }: TaskBoardProps) {
   function getAssigneeName(assigneeId: number) {
-    return teamMembers.find((member) => member.id === assigneeId)?.name ?? "Unassigned";
+    const assignee = teamMembers.find((member) => member.id === assigneeId);
+    return assignee ? `${assignee.name} ${assignee.surname}` : "Unassigned";
   }
 
   return (

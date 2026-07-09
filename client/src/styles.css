@@ -21,13 +21,78 @@ select {
   font: inherit;
 }
 
+button {
+  cursor: pointer;
+}
+
+.app-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  padding: 24px 16px;
+  border-right: 1px solid #dce3ee;
+  background: #ffffff;
+}
+
+.brand-block {
+  display: grid;
+  gap: 2px;
+  padding: 0 8px 24px;
+}
+
+.brand-block span {
+  color: #3267d6;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand-block strong {
+  font-size: 1.65rem;
+}
+
+.fast-nav {
+  display: grid;
+  gap: 8px;
+}
+
+.nav-item {
+  width: 100%;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #4b5a6d;
+  text-align: left;
+}
+
+.nav-item:hover,
+.nav-item--active {
+  border-color: #c9d7f2;
+  background: #edf2fb;
+  color: #1f4fac;
+}
+
+.nav-item span {
+  font-size: 0.82rem;
+}
+
 .app-shell {
   width: min(1180px, calc(100% - 32px));
   margin: 0 auto;
   padding: 32px 0;
 }
 
-.hero {
+.page-header {
   display: flex;
   align-items: stretch;
   justify-content: space-between;
@@ -35,14 +100,14 @@ select {
   margin-bottom: 24px;
 }
 
-.hero h1 {
+.page-header h1 {
   max-width: 720px;
   margin: 0;
   font-size: clamp(2rem, 5vw, 4rem);
   line-height: 1;
 }
 
-.hero p {
+.page-header p {
   max-width: 680px;
   margin: 16px 0 0;
   color: #5d6a7c;
@@ -61,7 +126,10 @@ select {
 .project-status,
 .metric-card,
 .sprint-summary,
-.board-column {
+.board-column,
+.table-panel,
+.detail-panel,
+.project-card {
   border: 1px solid #dce3ee;
   border-radius: 8px;
   background: #ffffff;
@@ -83,7 +151,11 @@ select {
 .metric-card span,
 .task-card p,
 .task-card footer,
-.sprint-summary span {
+.sprint-summary span,
+.table-row small,
+.detail-panel p,
+.project-card p,
+.project-card dt {
   color: #687789;
 }
 
@@ -212,14 +284,119 @@ select {
   font-size: 0.85rem;
 }
 
-@media (max-width: 900px) {
-  .hero,
-  .sprint-summary {
+.table-panel {
+  overflow: hidden;
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1.1fr 1.4fr 1fr 0.8fr;
+  gap: 16px;
+  padding: 16px;
+  border-top: 1px solid #e7edf5;
+  align-items: center;
+}
+
+.table-row:first-child {
+  border-top: 0;
+}
+
+.table-row--head {
+  background: #edf2fb;
+  color: #3267d6;
+  font-weight: 800;
+}
+
+.table-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.table-row small {
+  display: block;
+  margin-top: 4px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.detail-panel {
+  padding: 20px;
+}
+
+.detail-panel h2,
+.detail-panel p {
+  margin: 0;
+}
+
+.detail-panel h2 {
+  margin-bottom: 10px;
+}
+
+.project-card {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 24px;
+  padding: 20px;
+}
+
+.project-card h2,
+.project-card p,
+.project-card dl,
+.project-card dd {
+  margin: 0;
+}
+
+.project-card h2 {
+  margin-bottom: 10px;
+}
+
+.project-card dl {
+  display: grid;
+  gap: 14px;
+}
+
+.project-card dt {
+  margin-bottom: 4px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.project-card dd {
+  font-weight: 700;
+}
+
+@media (max-width: 1000px) {
+  .app-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    position: static;
+    height: auto;
+    border-right: 0;
+    border-bottom: 1px solid #dce3ee;
+  }
+
+  .fast-nav {
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    overflow-x: auto;
+  }
+
+  .page-header,
+  .sprint-summary,
+  .project-card {
     flex-direction: column;
+    grid-template-columns: 1fr;
   }
 
   .metrics-grid,
-  .board {
+  .board,
+  .detail-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -228,14 +405,24 @@ select {
   }
 }
 
-@media (max-width: 620px) {
+@media (max-width: 720px) {
   .app-shell {
     width: min(100% - 24px, 1180px);
     padding: 20px 0;
   }
 
   .metrics-grid,
-  .board {
+  .board,
+  .detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .table-row,
+  .table-row--head {
+    grid-template-columns: 1fr;
+  }
+
+  .table-row--head {
+    display: none;
   }
 }

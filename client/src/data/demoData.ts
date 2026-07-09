@@ -1,20 +1,78 @@
-import type { Project, Sprint, Task, TeamMember } from "../types";
+import type { Project, Sprint, Task, Team, TeamMember } from "../types";
 
 export const project: Project = {
   id: 1,
   name: "Customer Portal Refresh",
   clientName: "Northwind Labs",
+  description: "Refresh the customer portal dashboard and reporting workflow.",
   budgetHours: 420,
   usedHours: 236,
   deadline: "2026-08-21",
-  status: "At Risk"
+  status: "At Risk",
+  riskNotes: "Budget usage is moving faster than task completion."
 };
 
 export const teamMembers: TeamMember[] = [
-  { id: 1, name: "Ari Chen", role: "Frontend Developer", weeklyCapacityHours: 32 },
-  { id: 2, name: "Marta Rossi", role: "Backend Developer", weeklyCapacityHours: 30 },
-  { id: 3, name: "Jon Bell", role: "Product Designer", weeklyCapacityHours: 18 },
-  { id: 4, name: "Lea Singh", role: "QA Engineer", weeklyCapacityHours: 24 }
+  {
+    id: 1,
+    name: "Ari",
+    surname: "Chen",
+    email: "ari.chen@example.com",
+    phoneNumber: "+39 333 010 1001",
+    role: "Frontend Developer",
+    hourlyWage: 45,
+    weeklyCapacityHours: 32,
+    projectIds: [1],
+    bio: "Owns dashboard UI implementation."
+  },
+  {
+    id: 2,
+    name: "Marta",
+    surname: "Rossi",
+    email: "marta.rossi@example.com",
+    phoneNumber: "+39 333 010 1002",
+    role: "Backend Developer",
+    hourlyWage: 50,
+    weeklyCapacityHours: 30,
+    projectIds: [1],
+    bio: "Owns API design and data modeling."
+  },
+  {
+    id: 3,
+    name: "Jon",
+    surname: "Bell",
+    email: "jon.bell@example.com",
+    phoneNumber: "+39 333 010 1003",
+    role: "Product Designer",
+    hourlyWage: 42,
+    weeklyCapacityHours: 18,
+    projectIds: [1],
+    bio: "Reviews user experience and empty states."
+  },
+  {
+    id: 4,
+    name: "Lea",
+    surname: "Singh",
+    email: "lea.singh@example.com",
+    phoneNumber: "+39 333 010 1004",
+    role: "QA Engineer",
+    hourlyWage: 38,
+    weeklyCapacityHours: 24,
+    projectIds: [1],
+    bio: "Owns regression checks and risk validation."
+  }
+];
+
+export const teams: Team[] = [
+  {
+    id: 1,
+    name: "Portal Delivery Squad",
+    focusArea: "Customer-facing product delivery",
+    leadId: 2,
+    memberIds: [1, 2, 3, 4],
+    projectIds: [1],
+    notes: "Small cross-functional team covering frontend, backend, UX, and QA."
+  }
 ];
 
 export const sprint: Sprint = {
