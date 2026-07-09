@@ -344,6 +344,8 @@ button {
 .project-status,
 .metric-card,
 .sprint-summary,
+.execution-hero,
+.execution-panel,
 .board-column,
 .table-panel,
 .detail-panel,
@@ -436,6 +438,186 @@ button {
 
 .sprint-summary span {
   white-space: nowrap;
+}
+
+.execution-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 22px;
+}
+
+.execution-hero h2,
+.execution-hero p,
+.execution-panel h2,
+.execution-board-header h2,
+.execution-board-header p {
+  margin: 0;
+}
+
+.execution-hero h2 {
+  margin-bottom: 10px;
+  font-size: 2rem;
+}
+
+.execution-hero p:not(.eyebrow),
+.execution-board-header p,
+.execution-sprint-card small,
+.team-load-row span {
+  color: #687789;
+}
+
+.execution-hero__meta {
+  display: grid;
+  gap: 8px;
+  min-width: 210px;
+  padding: 14px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #f8fbff;
+  text-align: right;
+}
+
+.execution-hero__meta span {
+  color: #687789;
+  font-size: 0.9rem;
+}
+
+.execution-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.execution-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.execution-main {
+  display: grid;
+  gap: 16px;
+}
+
+.execution-panel {
+  padding: 16px;
+}
+
+.execution-panel__header,
+.execution-board-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.execution-panel__header span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: 34px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #edf2fb;
+  color: #3267d6;
+  font-weight: 800;
+}
+
+.execution-sprint-list {
+  display: grid;
+  gap: 10px;
+}
+
+.execution-sprint-card {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #fbfcff;
+  color: #18212f;
+  text-align: left;
+}
+
+.execution-sprint-card:hover,
+.execution-sprint-card--active {
+  border-color: #3267d6;
+  background: #f8fbff;
+}
+
+.execution-sprint-card > span:first-child {
+  color: #3267d6;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.execution-health {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.status-flow,
+.team-load-list {
+  display: grid;
+  gap: 12px;
+}
+
+.status-flow__row {
+  display: grid;
+  grid-template-columns: 92px minmax(0, 1fr) 28px;
+  gap: 10px;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.status-flow__row > span {
+  color: #4b5a6d;
+}
+
+.status-flow__row > div,
+.mini-progress {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.status-flow__row > div span,
+.mini-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3267d6;
+}
+
+.team-load-row {
+  display: grid;
+  gap: 8px;
+}
+
+.team-load-row div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.execution-board-header {
+  margin-bottom: 0;
+  padding: 16px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
 }
 
 .board {
@@ -1009,6 +1191,9 @@ button {
   }
 
   .metrics-grid,
+  .execution-kpis,
+  .execution-layout,
+  .execution-health,
   .board,
   .detail-grid,
   .project-detail-grid,
@@ -1042,6 +1227,9 @@ button {
   }
 
   .metrics-grid,
+  .execution-kpis,
+  .execution-layout,
+  .execution-health,
   .board,
   .detail-grid,
   .project-detail-grid,
@@ -1051,9 +1239,17 @@ button {
   }
 
   .project-access-card,
+  .execution-hero,
+  .execution-panel__header,
+  .execution-board-header,
   .project-detail-panel__header {
     grid-template-columns: 1fr;
     flex-direction: column;
+  }
+
+  .execution-hero__meta {
+    min-width: 0;
+    text-align: left;
   }
 
   .project-access-card__meta {

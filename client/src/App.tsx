@@ -38,6 +38,7 @@ function App() {
   const [projectSearch, setProjectSearch] = useState("");
   const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
   const [sprintSearch, setSprintSearch] = useState("");
+  const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [openedSprintId, setOpenedSprintId] = useState<number | null>(null);
 
   const isAdmin = authUser?.role === "admin";
@@ -54,7 +55,15 @@ function App() {
     ) ??
     projects.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
     projects[0];
+  const selectedProjectSprints = sprints.filter(
+    (sprintItem) => sprintItem.projectId === selectedProject.id
+  );
   const selectedProjectTasks = tasks.filter((task) => task.projectId === selectedProject.id);
+  const selectedSprint =
+    selectedProjectSprints.find((sprintItem) => sprintItem.id === selectedSprintId) ?? null;
+  const selectedSprintTasks = selectedSprint
+    ? selectedProjectTasks.filter((task) => task.sprintId === selectedSprint.id)
+    : selectedProjectTasks;
   const visibleTeam =
     isAdmin || !loggedEmployee
       ? teams[0]
@@ -166,12 +175,73 @@ function App() {
   const openedSprintTasks = openedSprint
     ? tasks.filter((task) => task.sprintId === openedSprint.id)
     : [];
+  const selectedProjectTeam = teams.find((team) => team.projectIds.includes(selectedProject.id));
+  const selectedProjectTeamMembers = selectedProjectTeam
+    ? teamMembers.filter((member) => selectedProjectTeam.memberIds.includes(member.id))
+    : [];
+  const sprintExecutionTitle = selectedSprint ? selectedSprint.name : "All sprint work";
+  const sprintExecutionGoal = selectedSprint
+    ? selectedSprint.goal
+    : "Portfolio view for every sprint task assigned to this project.";
+  const sprintExecutionDateRange = selectedSprint
+    ? `${selectedSprint.startDate} to ${selectedSprint.endDate}`
+    : `${selectedProjectSprints.length} sprints in scope`;
+  const sprintEstimateHours = selectedSprintTasks.reduce(
+    (total, task) => total + task.estimateHours,
+    0
+  );
+  const sprintSpentHours = selectedSprintTasks.reduce((total, task) => total + task.spentHours, 0);
+  const sprintCompletion = getTaskCompletionPercent(selectedSprintTasks);
+  const openHighPriorityTasks = selectedSprintTasks.filter(
+    (task) => task.priority === "High" && task.status !== "Done"
+  );
+  const activeTaskCount = selectedSprintTasks.filter((task) =>
+    ["In Progress", "Review"].includes(task.status)
+  ).length;
+  const sprintStatusBreakdown = [
+    { label: "Todo", count: selectedSprintTasks.filter((task) => task.status === "Todo").length },
+    {
+      label: "In progress",
+      count: selectedSprintTasks.filter((task) => task.status === "In Progress").length
+    },
+    {
+      label: "Review",
+      count: selectedSprintTasks.filter((task) => task.status === "Review").length
+    },
+    { label: "Done", count: selectedSprintTasks.filter((task) => task.status === "Done").length }
+  ];
+  const sprintTeamLoad = selectedProjectTeamMembers.map((member) => {
+    const memberTasks = selectedSprintTasks.filter((task) => task.assigneeId === member.id);
+    const plannedHours = memberTasks.reduce((total, task) => total + task.estimateHours, 0);
+
+    return {
+      member,
+      taskCount: memberTasks.length,
+      plannedHours,
+      loadPercent:
+        member.weeklyCapacityHours > 0
+          ? Math.min(Math.round((plannedHours / member.weeklyCapacityHours) * 100), 100)
+          : 0
+    };
+  });
 
   useEffect(() => {
     if (authUser?.role === "user" && activeView === "dependents") {
       setActiveView("dashboard");
     }
   }, [activeView, authUser]);
+
+  useEffect(() => {
+    if (
+      selectedSprintId &&
+      !sprints.some(
+        (sprintItem) =>
+          sprintItem.projectId === selectedProject.id && sprintItem.id === selectedSprintId
+      )
+    ) {
+      setSelectedSprintId(null);
+    }
+  }, [selectedProject.id, selectedSprintId]);
 
   useEffect(() => {
     getCurrentUser()
@@ -907,11 +977,190 @@ function App() {
           <>
             <PageHeader
               currentProject={selectedProject}
-              eyebrow="Task Board"
+              eyebrow="Sprint Execution"
               title="Sprint execution"
-              description="A quick board for seeing what is open, in progress, under review, and done."
+              description="A focused delivery workspace for sprint health, team load, priority risk, and the live task board."
             />
-            <TaskBoard tasks={selectedProjectTasks} teamMembers={teamMembers} />
+
+            <section className="execution-hero" aria-label="Sprint execution summary">
+              <div>
+                <p className="eyebrow">{selectedProject.clientName}</p>
+                <h2>{sprintExecutionTitle}</h2>
+                <p>{sprintExecutionGoal}</p>
+              </div>
+
+              <div className="execution-hero__meta">
+                <span>{sprintExecutionDateRange}</span>
+                <strong>{selectedSprint?.status ?? "Project scope"}</strong>
+              </div>
+            </section>
+
+            <section className="execution-kpis" aria-label="Sprint execution metrics">
+              <MetricCard
+                label="Completion"
+                value={`${sprintCompletion}%`}
+                helper={`${selectedSprintTasks.filter((task) => task.status === "Done").length}/${
+                  selectedSprintTasks.length
+                } tasks done`}
+                tone={sprintCompletion >= 70 ? "success" : "neutral"}
+              />
+              <MetricCard
+                label="Hours used"
+                value={`${sprintSpentHours}/${sprintEstimateHours}h`}
+                helper="Spent hours against planned effort"
+                tone={sprintSpentHours > sprintEstimateHours ? "warning" : "neutral"}
+              />
+              <MetricCard
+                label="Active work"
+                value={String(activeTaskCount)}
+                helper="Tasks currently in progress or review"
+              />
+              <MetricCard
+                label="Priority risk"
+                value={String(openHighPriorityTasks.length)}
+                helper="High priority tasks not done yet"
+                tone={openHighPriorityTasks.length > 0 ? "warning" : "success"}
+              />
+            </section>
+
+            <section className="execution-layout" aria-label="Sprint execution workspace">
+              <aside className="execution-panel">
+                <div className="execution-panel__header">
+                  <div>
+                    <p className="eyebrow">Sprint backlog</p>
+                    <h2>Select scope</h2>
+                  </div>
+                  <span>{selectedProjectSprints.length}</span>
+                </div>
+
+                <div className="execution-sprint-list">
+                  <button
+                    className={
+                      !selectedSprint
+                        ? "execution-sprint-card execution-sprint-card--active"
+                        : "execution-sprint-card"
+                    }
+                    type="button"
+                    onClick={() => setSelectedSprintId(null)}
+                  >
+                    <span>All sprint work</span>
+                    <strong>Project task flow</strong>
+                    <small>{selectedProjectTasks.length} tasks across this project</small>
+                  </button>
+
+                  {selectedProjectSprints.map((sprintItem) => {
+                    const sprintTasks = selectedProjectTasks.filter(
+                      (task) => task.sprintId === sprintItem.id
+                    );
+                    const sprintDoneTasks = sprintTasks.filter((task) => task.status === "Done");
+                    const sprintProgress =
+                      sprintTasks.length > 0
+                        ? Math.round((sprintDoneTasks.length / sprintTasks.length) * 100)
+                        : 0;
+
+                    return (
+                      <button
+                        className={
+                          selectedSprint?.id === sprintItem.id
+                            ? "execution-sprint-card execution-sprint-card--active"
+                            : "execution-sprint-card"
+                        }
+                        key={sprintItem.id}
+                        type="button"
+                        onClick={() => setSelectedSprintId(sprintItem.id)}
+                        onDoubleClick={() => {
+                          setOpenedSprintId(sprintItem.id);
+                          setActiveView("sprints");
+                        }}
+                      >
+                        <span>{sprintItem.status}</span>
+                        <strong>{sprintItem.name}</strong>
+                        <small>{sprintItem.goal}</small>
+                        <div className="mini-progress" aria-label={`${sprintProgress}% complete`}>
+                          <span style={{ width: `${sprintProgress}%` }} />
+                        </div>
+                        <small>
+                          {sprintDoneTasks.length}/{sprintTasks.length} tasks done
+                        </small>
+                      </button>
+                    );
+                  })}
+                </div>
+              </aside>
+
+              <div className="execution-main">
+                <section className="execution-health">
+                  <article className="execution-panel">
+                    <div className="execution-panel__header">
+                      <div>
+                        <p className="eyebrow">Sprint health</p>
+                        <h2>Status flow</h2>
+                      </div>
+                      <span>{sprintCompletion}%</span>
+                    </div>
+
+                    <div className="status-flow">
+                      {sprintStatusBreakdown.map((statusItem) => (
+                        <div className="status-flow__row" key={statusItem.label}>
+                          <span>{statusItem.label}</span>
+                          <div>
+                            <span
+                              style={{
+                                width:
+                                  selectedSprintTasks.length > 0
+                                    ? `${Math.round(
+                                        (statusItem.count / selectedSprintTasks.length) * 100
+                                      )}%`
+                                    : "0%"
+                              }}
+                            />
+                          </div>
+                          <strong>{statusItem.count}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="execution-panel">
+                    <div className="execution-panel__header">
+                      <div>
+                        <p className="eyebrow">Team load</p>
+                        <h2>{selectedProjectTeam?.name ?? "Assigned team"}</h2>
+                      </div>
+                      <span>{selectedProjectTeamMembers.length}</span>
+                    </div>
+
+                    <div className="team-load-list">
+                      {sprintTeamLoad.map((loadItem) => (
+                        <div className="team-load-row" key={loadItem.member.id}>
+                          <div>
+                            <strong>
+                              {loadItem.member.name} {loadItem.member.surname}
+                            </strong>
+                            <span>
+                              {loadItem.taskCount} tasks / {loadItem.plannedHours}h planned
+                            </span>
+                          </div>
+                          <div className="mini-progress" aria-label={`${loadItem.loadPercent}% load`}>
+                            <span style={{ width: `${loadItem.loadPercent}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                </section>
+
+                <section className="execution-board-header">
+                  <div>
+                    <p className="eyebrow">Live board</p>
+                    <h2>{sprintExecutionTitle}</h2>
+                  </div>
+                  <p>Double click a sprint in the backlog to open the full sprint detail page.</p>
+                </section>
+
+                <TaskBoard tasks={selectedSprintTasks} teamMembers={teamMembers} />
+              </div>
+            </section>
           </>
         )}
 
