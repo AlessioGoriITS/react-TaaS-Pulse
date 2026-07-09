@@ -1,0 +1,13 @@
+{
+  "name": "react-taas-pulse",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "client"
+  ],
+  "scripts": {
+    "dev": "npm --prefix client run dev",
+    "build": "npm --prefix client run build",
+    "preview": "npm --prefix client run preview"
+  }
+}
