@@ -2,13 +2,13 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
-import { project, projects, sprint, sprints, tasks, teamMembers, teams } from "./data/demoData";
+import { project, projects, sprint, sprints as initialSprints, tasks, teamMembers, teams } from "./data/demoData";
 import {
   getBudgetUsagePercent,
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { AuthUser, ViewId } from "./types";
+import type { AuthUser, Sprint, ViewId } from "./types";
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "dashboard", label: "Dashboard", helper: "Project health" },
@@ -16,7 +16,8 @@ const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "team", label: "Team Info", helper: "Squads and capacity" },
   { id: "projects", label: "Projects", helper: "Client delivery" },
   { id: "sprints", label: "Sprints", helper: "Planning cycles" },
-  { id: "tasks", label: "Task Board", helper: "Sprint execution" }
+  { id: "tasks", label: "Task Board", helper: "Sprint execution" },
+  { id: "admin", label: "Admin Edits", helper: "Create and edit data" }
 ];
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
@@ -38,8 +39,24 @@ function App() {
   const [projectSearch, setProjectSearch] = useState("");
   const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
   const [sprintSearch, setSprintSearch] = useState("");
+  const [sprintRecords, setSprintRecords] = useState<Sprint[]>(initialSprints);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [openedSprintId, setOpenedSprintId] = useState<number | null>(null);
+  const [newSprintProjectId, setNewSprintProjectId] = useState(String(project.id));
+  const [newSprintName, setNewSprintName] = useState("");
+  const [newSprintGoal, setNewSprintGoal] = useState("");
+  const [newSprintDescription, setNewSprintDescription] = useState("");
+  const [newSprintStartDate, setNewSprintStartDate] = useState("");
+  const [newSprintEndDate, setNewSprintEndDate] = useState("");
+  const [newSprintStatus, setNewSprintStatus] = useState<Sprint["status"]>("Planned");
+  const [newSprintCapacityHours, setNewSprintCapacityHours] = useState("80");
+  const [newSprintFocus, setNewSprintFocus] = useState("Feature delivery");
+  const [newSprintDefinitionOfDone, setNewSprintDefinitionOfDone] = useState(
+    "Code reviewed, tested, documented, and ready for demo."
+  );
+  const [newSprintRisks, setNewSprintRisks] = useState("");
+  const [newSprintBacklogNotes, setNewSprintBacklogNotes] = useState("");
+  const [sprintCreatorMessage, setSprintCreatorMessage] = useState("");
 
   const isAdmin = authUser?.role === "admin";
   const loggedEmployee = authUser?.employeeId
@@ -55,7 +72,7 @@ function App() {
     ) ??
     projects.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
     projects[0];
-  const selectedProjectSprints = sprints.filter(
+  const selectedProjectSprints = sprintRecords.filter(
     (sprintItem) => sprintItem.projectId === selectedProject.id
   );
   const selectedProjectTasks = tasks.filter((task) => task.projectId === selectedProject.id);
@@ -143,10 +160,10 @@ function App() {
     ? teamMembers.filter((member) => openedProjectTeam.memberIds.includes(member.id))
     : [];
   const openedProjectSprints = openedProject
-    ? sprints.filter((sprintItem) => sprintItem.projectId === openedProject.id)
+    ? sprintRecords.filter((sprintItem) => sprintItem.projectId === openedProject.id)
     : [];
   const sprintSearchValue = sprintSearch.trim().toLowerCase();
-  const filteredSprints = sprints.filter((sprintItem) => {
+  const filteredSprints = sprintRecords.filter((sprintItem) => {
     const sprintProject = projects.find((projectItem) => projectItem.id === sprintItem.projectId);
 
     if (sprintSearchValue.length === 0) {
@@ -161,7 +178,7 @@ function App() {
     );
   });
   const openedSprint = openedSprintId
-    ? sprints.find((sprintItem) => sprintItem.id === openedSprintId)
+    ? sprintRecords.find((sprintItem) => sprintItem.id === openedSprintId)
     : undefined;
   const openedSprintProject = openedSprint
     ? projects.find((projectItem) => projectItem.id === openedSprint.projectId)
@@ -226,7 +243,7 @@ function App() {
   });
 
   useEffect(() => {
-    if (authUser?.role === "user" && activeView === "dependents") {
+    if (authUser?.role === "user" && (activeView === "dependents" || activeView === "admin")) {
       setActiveView("dashboard");
     }
   }, [activeView, authUser]);
@@ -234,14 +251,14 @@ function App() {
   useEffect(() => {
     if (
       selectedSprintId &&
-      !sprints.some(
+      !sprintRecords.some(
         (sprintItem) =>
           sprintItem.projectId === selectedProject.id && sprintItem.id === selectedSprintId
       )
     ) {
       setSelectedSprintId(null);
     }
-  }, [selectedProject.id, selectedSprintId]);
+  }, [selectedProject.id, selectedSprintId, sprintRecords]);
 
   useEffect(() => {
     getCurrentUser()
@@ -280,8 +297,68 @@ function App() {
     setIsAccountMenuOpen(false);
   }
 
+  function handleCreateSprint(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSprintCreatorMessage("");
+
+    if (!isAdmin) {
+      setSprintCreatorMessage("Only admin users can create sprints.");
+      return;
+    }
+
+    const projectId = Number(newSprintProjectId);
+    const capacityHours = Number(newSprintCapacityHours);
+
+    if (!newSprintName.trim() || !newSprintGoal.trim() || !newSprintStartDate || !newSprintEndDate) {
+      setSprintCreatorMessage("Name, goal, start date, and end date are required.");
+      return;
+    }
+
+    if (new Date(newSprintEndDate) < new Date(newSprintStartDate)) {
+      setSprintCreatorMessage("End date must be after the start date.");
+      return;
+    }
+
+    if (!Number.isFinite(capacityHours) || capacityHours <= 0) {
+      setSprintCreatorMessage("Capacity must be a positive number of hours.");
+      return;
+    }
+
+    const newSprint: Sprint = {
+      id: Math.max(0, ...sprintRecords.map((sprintItem) => sprintItem.id)) + 1,
+      projectId,
+      name: newSprintName.trim(),
+      goal: newSprintGoal.trim(),
+      longDescription: newSprintDescription.trim() || newSprintGoal.trim(),
+      startDate: newSprintStartDate,
+      endDate: newSprintEndDate,
+      status: newSprintStatus,
+      capacityHours,
+      focusArea: newSprintFocus,
+      definitionOfDone: newSprintDefinitionOfDone.trim(),
+      riskNotes: newSprintRisks.trim(),
+      backlogNotes: newSprintBacklogNotes.trim()
+    };
+
+    setSprintRecords((currentSprints) => [newSprint, ...currentSprints]);
+    setSelectedProjectId(projectId);
+    setOpenedSprintId(newSprint.id);
+    setNewSprintName("");
+    setNewSprintGoal("");
+    setNewSprintDescription("");
+    setNewSprintStartDate("");
+    setNewSprintEndDate("");
+    setNewSprintStatus("Planned");
+    setNewSprintCapacityHours("80");
+    setNewSprintFocus("Feature delivery");
+    setNewSprintDefinitionOfDone("Code reviewed, tested, documented, and ready for demo.");
+    setNewSprintRisks("");
+    setNewSprintBacklogNotes("");
+    setSprintCreatorMessage("Sprint created in the demo workspace.");
+  }
+
   function handleNavigation(viewId: ViewId) {
-    if (authUser?.role === "user" && viewId === "dependents") {
+    if (authUser?.role === "user" && (viewId === "dependents" || viewId === "admin")) {
       return;
     }
 
@@ -373,11 +450,13 @@ function App() {
               className={[
                 "nav-item",
                 activeView === item.id ? "nav-item--active" : "",
-                authUser.role === "user" && item.id === "dependents" ? "nav-item--disabled" : ""
+                authUser.role === "user" && ["dependents", "admin"].includes(item.id)
+                  ? "nav-item--disabled"
+                  : ""
               ]
                 .filter(Boolean)
                 .join(" ")}
-              disabled={authUser.role === "user" && item.id === "dependents"}
+              disabled={authUser.role === "user" && ["dependents", "admin"].includes(item.id)}
               key={item.id}
               type="button"
               onClick={() => handleNavigation(item.id)}
@@ -925,6 +1004,16 @@ function App() {
                     <span>End</span>
                     <strong>{openedSprint.endDate}</strong>
                   </article>
+                  <article>
+                    <span>Capacity</span>
+                    <strong>
+                      {openedSprint.capacityHours ? `${openedSprint.capacityHours}h` : "Not set"}
+                    </strong>
+                  </article>
+                  <article>
+                    <span>Focus area</span>
+                    <strong>{openedSprint.focusArea ?? "Not set"}</strong>
+                  </article>
                 </div>
 
                 <div className="project-detail-columns">
@@ -967,9 +1056,199 @@ function App() {
                       <p>No tasks have been assigned to this sprint yet.</p>
                     )}
                   </article>
+
+                  <article>
+                    <h3>Backlog notes</h3>
+                    <p>{openedSprint.backlogNotes || "No backlog notes added yet."}</p>
+                    <h3>Definition of done</h3>
+                    <p>{openedSprint.definitionOfDone || "No definition of done added yet."}</p>
+                  </article>
+
+                  <article>
+                    <h3>Risks and dependencies</h3>
+                    <p>{openedSprint.riskNotes || "No sprint risks recorded."}</p>
+                  </article>
                 </div>
               </section>
             )}
+          </>
+        )}
+
+        {activeView === "admin" && (
+          <>
+            <PageHeader
+              currentProject={selectedProject}
+              eyebrow="Admin Edits"
+              title="Admin edits"
+              description="A protected workspace for creating and maintaining operational data without mixing edit tools into the read-only portal pages."
+            />
+
+            <section className="admin-edit-shell" aria-label="Admin edit tools">
+              <aside className="admin-edit-sidebar">
+                <p className="eyebrow">Edit categories</p>
+                <button className="admin-edit-tab admin-edit-tab--active" type="button">
+                  <strong>Sprint Creator</strong>
+                  <span>Create sprint plans and planning metadata</span>
+                </button>
+                <button className="admin-edit-tab" type="button" disabled>
+                  <strong>Project Edits</strong>
+                  <span>Coming next</span>
+                </button>
+                <button className="admin-edit-tab" type="button" disabled>
+                  <strong>Team Edits</strong>
+                  <span>Coming next</span>
+                </button>
+              </aside>
+
+              <section className="sprint-creator" aria-label="Sprint creator">
+                <div className="sprint-creator__intro">
+                  <div>
+                    <p className="eyebrow">Sprint creator</p>
+                    <h2>Create a sprint plan</h2>
+                    <p>
+                      Use this to define the sprint timebox, goal, capacity, backlog notes, and
+                      quality expectations before work moves into execution.
+                    </p>
+                  </div>
+                  <span>Admin editable</span>
+                </div>
+
+                <form className="sprint-creator-form" onSubmit={handleCreateSprint}>
+                  <label>
+                    Project
+                    <select
+                      value={newSprintProjectId}
+                      onChange={(event) => setNewSprintProjectId(event.target.value)}
+                    >
+                      {projects.map((projectItem) => (
+                        <option key={projectItem.id} value={projectItem.id}>
+                          {projectItem.name} - {projectItem.clientName}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Sprint name
+                    <input
+                      value={newSprintName}
+                      onChange={(event) => setNewSprintName(event.target.value)}
+                      placeholder="Example: Sprint 5 - Reporting polish"
+                    />
+                  </label>
+
+                  <label>
+                    Status
+                    <select
+                      value={newSprintStatus}
+                      onChange={(event) => setNewSprintStatus(event.target.value as Sprint["status"])}
+                    >
+                      <option value="Planned">Planned</option>
+                      <option value="Active">Active</option>
+                      <option value="Blocked">Blocked</option>
+                      <option value="Completed">Completed</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    Start date
+                    <input
+                      type="date"
+                      value={newSprintStartDate}
+                      onChange={(event) => setNewSprintStartDate(event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    End date
+                    <input
+                      type="date"
+                      value={newSprintEndDate}
+                      onChange={(event) => setNewSprintEndDate(event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    Capacity hours
+                    <input
+                      min="1"
+                      type="number"
+                      value={newSprintCapacityHours}
+                      onChange={(event) => setNewSprintCapacityHours(event.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    Focus area
+                    <select
+                      value={newSprintFocus}
+                      onChange={(event) => setNewSprintFocus(event.target.value)}
+                    >
+                      <option>Feature delivery</option>
+                      <option>Bug fixing</option>
+                      <option>Technical debt</option>
+                      <option>Discovery</option>
+                      <option>Release hardening</option>
+                      <option>Client feedback</option>
+                    </select>
+                  </label>
+
+                  <label className="sprint-creator-form__wide">
+                    Sprint goal
+                    <textarea
+                      value={newSprintGoal}
+                      onChange={(event) => setNewSprintGoal(event.target.value)}
+                      placeholder="What valuable outcome should the team achieve by the end?"
+                      rows={3}
+                    />
+                  </label>
+
+                  <label className="sprint-creator-form__wide">
+                    Extended description
+                    <textarea
+                      value={newSprintDescription}
+                      onChange={(event) => setNewSprintDescription(event.target.value)}
+                      placeholder="Context, expected outcome, stakeholders, or delivery notes."
+                      rows={4}
+                    />
+                  </label>
+
+                  <label className="sprint-creator-form__wide">
+                    Backlog notes
+                    <textarea
+                      value={newSprintBacklogNotes}
+                      onChange={(event) => setNewSprintBacklogNotes(event.target.value)}
+                      placeholder="Which work should be pulled into this sprint?"
+                      rows={3}
+                    />
+                  </label>
+
+                  <label className="sprint-creator-form__wide">
+                    Definition of done
+                    <textarea
+                      value={newSprintDefinitionOfDone}
+                      onChange={(event) => setNewSprintDefinitionOfDone(event.target.value)}
+                      rows={3}
+                    />
+                  </label>
+
+                  <label className="sprint-creator-form__wide">
+                    Risks or dependencies
+                    <textarea
+                      value={newSprintRisks}
+                      onChange={(event) => setNewSprintRisks(event.target.value)}
+                      placeholder="External blockers, unclear requirements, unavailable people..."
+                      rows={3}
+                    />
+                  </label>
+
+                  <div className="sprint-creator-actions">
+                    <p>{sprintCreatorMessage}</p>
+                    <button type="submit">Create sprint</button>
+                  </div>
+                </form>
+              </section>
+            </section>
           </>
         )}
 

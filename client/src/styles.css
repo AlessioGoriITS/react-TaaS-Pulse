@@ -620,6 +620,150 @@ button {
   background: #ffffff;
 }
 
+.sprint-creator {
+  margin-bottom: 16px;
+  padding: 18px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.sprint-creator__intro {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.sprint-creator__intro h2,
+.sprint-creator__intro p,
+.sprint-creator-actions p {
+  margin: 0;
+}
+
+.sprint-creator__intro h2 {
+  margin-bottom: 8px;
+}
+
+.sprint-creator__intro p:not(.eyebrow),
+.sprint-creator-actions p,
+.sprint-creator-readonly {
+  color: #687789;
+}
+
+.sprint-creator__intro > span {
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: #edf2fb;
+  color: #3267d6;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.sprint-creator-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.sprint-creator-form label {
+  display: grid;
+  gap: 6px;
+  color: #4b5a6d;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.sprint-creator-form input,
+.sprint-creator-form select,
+.sprint-creator-form textarea {
+  width: 100%;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fbfcff;
+  color: #18212f;
+  font: inherit;
+}
+
+.sprint-creator-form textarea {
+  resize: vertical;
+}
+
+.sprint-creator-form__wide,
+.sprint-creator-actions {
+  grid-column: 1 / -1;
+}
+
+.sprint-creator-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sprint-creator-actions button {
+  border: 0;
+  border-radius: 8px;
+  padding: 11px 16px;
+  background: #3267d6;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.sprint-creator-readonly {
+  padding: 14px;
+  border: 1px dashed #cfd8e6;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.admin-edit-shell {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-edit-sidebar {
+  padding: 16px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.admin-edit-tab {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #fbfcff;
+  color: #18212f;
+  text-align: left;
+}
+
+.admin-edit-tab span {
+  color: #687789;
+  font-size: 0.86rem;
+}
+
+.admin-edit-tab--active {
+  border-color: #3267d6;
+  background: #f8fbff;
+}
+
+.admin-edit-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .board {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1194,6 +1338,8 @@ button {
   .execution-kpis,
   .execution-layout,
   .execution-health,
+  .sprint-creator-form,
+  .admin-edit-shell,
   .board,
   .detail-grid,
   .project-detail-grid,
@@ -1242,6 +1388,8 @@ button {
   .execution-hero,
   .execution-panel__header,
   .execution-board-header,
+  .sprint-creator__intro,
+  .sprint-creator-actions,
   .project-detail-panel__header {
     grid-template-columns: 1fr;
     flex-direction: column;

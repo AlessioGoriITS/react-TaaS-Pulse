@@ -2,7 +2,14 @@ export type ProjectStatus = "On Track" | "At Risk" | "Blocked";
 
 export type TaskStatus = "Todo" | "In Progress" | "Review" | "Done";
 
-export type ViewId = "dashboard" | "dependents" | "team" | "projects" | "sprints" | "tasks";
+export type ViewId =
+  | "dashboard"
+  | "dependents"
+  | "team"
+  | "projects"
+  | "sprints"
+  | "tasks"
+  | "admin";
 
 export type UserRole = "admin" | "user";
 
@@ -47,6 +54,11 @@ export type Sprint = {
   startDate: string;
   endDate: string;
   status: "Planned" | "Active" | "Completed" | "Blocked";
+  capacityHours?: number;
+  focusArea?: string;
+  definitionOfDone?: string;
+  riskNotes?: string;
+  backlogNotes?: string;
 };
 
 export type Project = {
