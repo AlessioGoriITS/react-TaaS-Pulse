@@ -125,6 +125,33 @@ Connects teams to projects.
 This keeps the model flexible. A project can be assigned to a whole team, while
 `project_memberships` can still store the exact employee-level allocation.
 
+### users
+
+Stores application accounts for login.
+
+Important fields:
+
+- `email`: unique login identifier
+- `display_name`: name shown in the UI
+- `role`: either `admin` or `user`
+- `password_hash`: derived password hash, never the plain password
+- `password_salt`: random salt used for hashing
+- `password_iterations`: PBKDF2 work factor
+- `failed_login_attempts`: counter used for lockout
+- `locked_until`: temporary lock timestamp
+- `last_login_at`: last successful login
+
+This table is separate from `employees` on purpose. An employee is a business person
+in the delivery model; a user is an application account. Later they can be linked if
+the product needs that.
+
+### user_sessions
+
+Stores active login sessions.
+
+The browser receives only a session cookie. The database stores a hash of that session
+token, so the raw token is not saved directly.
+
 ### sprints
 
 Stores time-boxed work periods for a project.

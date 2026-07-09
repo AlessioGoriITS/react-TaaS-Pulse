@@ -92,6 +92,61 @@ button {
   padding: 32px 0;
 }
 
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.top-bar div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.top-bar span,
+.app-footer,
+.demo-accounts,
+.form-error {
+  color: #687789;
+}
+
+.top-bar strong {
+  font-size: 1.05rem;
+}
+
+.login-button,
+.account-pill button,
+.login-form button {
+  border: 0;
+  border-radius: 8px;
+  background: #3267d6;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.login-button,
+.account-pill button {
+  padding: 10px 14px;
+}
+
+.account-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.account-pill span {
+  padding-left: 8px;
+  color: #18212f;
+  font-weight: 700;
+}
+
 .page-header {
   display: flex;
   align-items: stretch;
@@ -370,6 +425,112 @@ button {
   font-weight: 700;
 }
 
+.app-footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 32px;
+  padding-top: 18px;
+  border-top: 1px solid #dce3ee;
+  font-size: 0.88rem;
+}
+
+.app-footer a {
+  color: #3267d6;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgb(24 33 47 / 0.48);
+  z-index: 20;
+}
+
+.login-modal {
+  width: min(100%, 420px);
+  padding: 20px;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(24 33 47 / 0.28);
+}
+
+.login-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.login-modal__header h2,
+.login-modal__header p {
+  margin: 0;
+}
+
+.login-modal__header button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #18212f;
+  font-weight: 800;
+}
+
+.login-form {
+  display: grid;
+  gap: 14px;
+}
+
+.login-form label {
+  display: grid;
+  gap: 6px;
+  font-weight: 800;
+}
+
+.login-form input {
+  width: 100%;
+  padding: 11px 12px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  color: #18212f;
+}
+
+.login-form button {
+  padding: 12px 14px;
+}
+
+.login-form button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.form-error {
+  margin: 0;
+  color: #b42318;
+  font-weight: 700;
+}
+
+.demo-accounts {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #f5f7fb;
+  font-size: 0.88rem;
+}
+
+.demo-accounts strong {
+  color: #18212f;
+}
+
 @media (max-width: 1000px) {
   .app-layout {
     grid-template-columns: 1fr;
@@ -388,9 +549,11 @@ button {
   }
 
   .page-header,
+  .top-bar,
   .sprint-summary,
   .project-card {
     flex-direction: column;
+    align-items: stretch;
     grid-template-columns: 1fr;
   }
 

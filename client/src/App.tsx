@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
 import { project, sprint, tasks, teamMembers, teams } from "./data/demoData";
@@ -7,7 +8,7 @@ import {
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { ViewId } from "./types";
+import type { AuthUser, ViewId } from "./types";
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "dashboard", label: "Dashboard", helper: "Project health" },
@@ -19,6 +20,12 @@ const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
 
 function App() {
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("admin@taaspulse.local");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
   const budgetUsage = useMemo(() => getBudgetUsagePercent(project), []);
   const taskCompletion = useMemo(() => getTaskCompletionPercent(tasks), []);
@@ -29,6 +36,34 @@ function App() {
   );
   const activeTeam = teams[0];
   const teamLead = teamMembers.find((member) => member.id === activeTeam.leadId);
+
+  useEffect(() => {
+    getCurrentUser()
+      .then(setAuthUser)
+      .catch(() => setAuthUser(null));
+  }, []);
+
+  async function handleLogin(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setLoginError("");
+    setIsSubmittingLogin(true);
+
+    try {
+      const user = await login(loginEmail, loginPassword);
+      setAuthUser(user);
+      setLoginPassword("");
+      setIsLoginOpen(false);
+    } catch (error) {
+      setLoginError(error instanceof Error ? error.message : "Login failed");
+    } finally {
+      setIsSubmittingLogin(false);
+    }
+  }
+
+  async function handleLogout() {
+    await logout();
+    setAuthUser(null);
+  }
 
   return (
     <div className="app-layout">
@@ -54,6 +89,26 @@ function App() {
       </aside>
 
       <main className="app-shell">
+        <div className="top-bar">
+          <div>
+            <span>Customer Portal</span>
+            <strong>{authUser ? `Signed in as ${authUser.role}` : "Guest mode"}</strong>
+          </div>
+
+          {authUser ? (
+            <div className="account-pill">
+              <span>{authUser.displayName}</span>
+              <button type="button" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
+          ) : (
+            <button className="login-button" type="button" onClick={() => setIsLoginOpen(true)}>
+              Login
+            </button>
+          )}
+        </div>
+
         {activeView === "dashboard" && (
           <>
             <PageHeader
@@ -213,7 +268,69 @@ function App() {
             <TaskBoard tasks={tasks} teamMembers={teamMembers} />
           </>
         )}
+
+        <footer className="app-footer">
+          <span>© 2026 TaaS Pulse</span>
+          <a href="#terms">Terms of Service</a>
+          <a href="#privacy">Privacy Notice</a>
+          <a href="#security">Security Info</a>
+          <span>Demo system. Do not use real credentials.</span>
+        </footer>
       </main>
+
+      {isLoginOpen && (
+        <div className="modal-backdrop" role="presentation">
+          <section className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+            <div className="login-modal__header">
+              <div>
+                <p className="eyebrow">Secure access</p>
+                <h2 id="login-title">Login</h2>
+              </div>
+              <button type="button" onClick={() => setIsLoginOpen(false)} aria-label="Close login">
+                x
+              </button>
+            </div>
+
+            <form className="login-form" onSubmit={handleLogin}>
+              <label>
+                Email
+                <input
+                  autoComplete="email"
+                  name="email"
+                  type="email"
+                  value={loginEmail}
+                  onChange={(event) => setLoginEmail(event.target.value)}
+                  required
+                />
+              </label>
+
+              <label>
+                Password
+                <input
+                  autoComplete="current-password"
+                  name="password"
+                  type="password"
+                  value={loginPassword}
+                  onChange={(event) => setLoginPassword(event.target.value)}
+                  required
+                />
+              </label>
+
+              {loginError && <p className="form-error">{loginError}</p>}
+
+              <button type="submit" disabled={isSubmittingLogin}>
+                {isSubmittingLogin ? "Checking..." : "Sign in"}
+              </button>
+            </form>
+
+            <div className="demo-accounts">
+              <strong>Local demo accounts</strong>
+              <span>Admin: admin@taaspulse.local / AdminPass!2026</span>
+              <span>User: user@taaspulse.local / UserPass!2026</span>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

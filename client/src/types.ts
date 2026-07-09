@@ -4,6 +4,14 @@ export type TaskStatus = "Todo" | "In Progress" | "Review" | "Done";
 
 export type ViewId = "dashboard" | "dependents" | "team" | "projects" | "tasks";
 
+export type UserRole = "admin" | "user";
+
+export type AuthUser = {
+  email: string;
+  displayName: string;
+  role: UserRole;
+};
+
 export type TeamMember = {
   id: number;
   name: string;

@@ -9,6 +9,7 @@
     "dev": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
     "preview": "npm --prefix client run preview",
-    "db:reset": "python server/scripts/reset_db.py"
+    "db:reset": "python server/scripts/reset_db.py",
+    "server:dev": "python server/auth_server.py"
   }
 }

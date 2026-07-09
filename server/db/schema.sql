@@ -75,6 +75,30 @@ CREATE TABLE team_projects (
   FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
 );
 
+CREATE TABLE users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+  password_hash TEXT NOT NULL,
+  password_salt TEXT NOT NULL,
+  password_iterations INTEGER NOT NULL CHECK (password_iterations >= 100000),
+  failed_login_attempts INTEGER NOT NULL DEFAULT 0 CHECK (failed_login_attempts >= 0),
+  locked_until TEXT,
+  last_login_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE user_sessions (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  token_hash TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+);
+
 CREATE TABLE project_memberships (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   project_id INTEGER NOT NULL,
@@ -126,6 +150,9 @@ CREATE INDEX idx_team_memberships_team_id ON team_memberships (team_id);
 CREATE INDEX idx_team_memberships_employee_id ON team_memberships (employee_id);
 CREATE INDEX idx_team_projects_team_id ON team_projects (team_id);
 CREATE INDEX idx_team_projects_project_id ON team_projects (project_id);
+CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_user_sessions_user_id ON user_sessions (user_id);
+CREATE INDEX idx_user_sessions_token_hash ON user_sessions (token_hash);
 CREATE INDEX idx_project_memberships_project_id ON project_memberships (project_id);
 CREATE INDEX idx_project_memberships_employee_id ON project_memberships (employee_id);
 CREATE INDEX idx_sprints_project_id ON sprints (project_id);
