@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
-import { project, projects, sprint, tasks, teamMembers, teams } from "./data/demoData";
+import { project, projects, sprint, sprints, tasks, teamMembers, teams } from "./data/demoData";
 import {
   getBudgetUsagePercent,
   getDeliveryRisk,
@@ -15,6 +15,7 @@ const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "dependents", label: "Dependents Info", helper: "People directory" },
   { id: "team", label: "Team Info", helper: "Squads and capacity" },
   { id: "projects", label: "Projects", helper: "Client delivery" },
+  { id: "sprints", label: "Sprints", helper: "Planning cycles" },
   { id: "tasks", label: "Task Board", helper: "Sprint execution" }
 ];
 
@@ -34,6 +35,10 @@ function App() {
   const [isEmployeeAutocompleteOpen, setIsEmployeeAutocompleteOpen] = useState(false);
   const [employeeJobFilter, setEmployeeJobFilter] = useState("all");
   const [employeeProjectFilter, setEmployeeProjectFilter] = useState("all");
+  const [projectSearch, setProjectSearch] = useState("");
+  const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
+  const [sprintSearch, setSprintSearch] = useState("");
+  const [openedSprintId, setOpenedSprintId] = useState<number | null>(null);
 
   const isAdmin = authUser?.role === "admin";
   const loggedEmployee = authUser?.employeeId
@@ -108,6 +113,59 @@ function App() {
 
     return matchesSearch && matchesJob && matchesProject;
   });
+  const projectSearchValue = projectSearch.trim().toLowerCase();
+  const filteredProjects = projects.filter((projectItem) => {
+    if (projectSearchValue.length === 0) {
+      return true;
+    }
+
+    return (
+      projectItem.name.toLowerCase().includes(projectSearchValue) ||
+      projectItem.clientName.toLowerCase().includes(projectSearchValue)
+    );
+  });
+  const openedProject = openedProjectId
+    ? projects.find((projectItem) => projectItem.id === openedProjectId)
+    : undefined;
+  const openedProjectTeam = openedProject
+    ? teams.find((team) => team.projectIds.includes(openedProject.id))
+    : undefined;
+  const openedProjectTeamMembers = openedProjectTeam
+    ? teamMembers.filter((member) => openedProjectTeam.memberIds.includes(member.id))
+    : [];
+  const openedProjectSprints = openedProject
+    ? sprints.filter((sprintItem) => sprintItem.projectId === openedProject.id)
+    : [];
+  const sprintSearchValue = sprintSearch.trim().toLowerCase();
+  const filteredSprints = sprints.filter((sprintItem) => {
+    const sprintProject = projects.find((projectItem) => projectItem.id === sprintItem.projectId);
+
+    if (sprintSearchValue.length === 0) {
+      return true;
+    }
+
+    return (
+      sprintItem.name.toLowerCase().includes(sprintSearchValue) ||
+      sprintItem.goal.toLowerCase().includes(sprintSearchValue) ||
+      (sprintProject?.name.toLowerCase().includes(sprintSearchValue) ?? false) ||
+      (sprintProject?.clientName.toLowerCase().includes(sprintSearchValue) ?? false)
+    );
+  });
+  const openedSprint = openedSprintId
+    ? sprints.find((sprintItem) => sprintItem.id === openedSprintId)
+    : undefined;
+  const openedSprintProject = openedSprint
+    ? projects.find((projectItem) => projectItem.id === openedSprint.projectId)
+    : undefined;
+  const openedSprintTeam = openedSprintProject
+    ? teams.find((team) => team.projectIds.includes(openedSprintProject.id))
+    : undefined;
+  const openedSprintTeamMembers = openedSprintTeam
+    ? teamMembers.filter((member) => openedSprintTeam.memberIds.includes(member.id))
+    : [];
+  const openedSprintTasks = openedSprint
+    ? tasks.filter((task) => task.sprintId === openedSprint.id)
+    : [];
 
   useEffect(() => {
     if (authUser?.role === "user" && activeView === "dependents") {
@@ -538,45 +596,310 @@ function App() {
 
         {activeView === "projects" && (
           <>
-            <PageHeader
-              currentProject={selectedProject}
-              eyebrow="Projects"
-              title="Client delivery overview"
-              description={
-                isAdmin
-                  ? "Admin users can open every client project."
-                  : "Projects outside your assignment are visible but locked."
-              }
-            />
+            {!openedProject ? (
+              <>
+                <PageHeader
+                  currentProject={selectedProject}
+                  eyebrow="Projects"
+                  title="Client delivery overview"
+                  description={
+                    isAdmin
+                      ? "Admin users can open every client project."
+                      : "Projects outside your assignment are visible but locked."
+                  }
+                />
 
-            <section className="project-list" aria-label="Project access list">
-              {projects.map((projectItem) => {
-                const isAccessible = canOpenProject(projectItem.id);
+                <section className="project-list" aria-label="Project access list">
+                  <div className="project-search-bar">
+                    <label htmlFor="project-search">Filter projects</label>
+                    <input
+                      id="project-search"
+                      type="search"
+                      value={projectSearch}
+                      onChange={(event) => setProjectSearch(event.target.value)}
+                      placeholder="Project name or client"
+                    />
+                  </div>
 
-                return (
-                  <button
-                    className={[
-                      "project-access-card",
-                      selectedProject.id === projectItem.id ? "project-access-card--active" : "",
-                      !isAccessible ? "project-access-card--locked" : ""
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    disabled={!isAccessible}
-                    key={projectItem.id}
-                    type="button"
-                    onClick={() => setSelectedProjectId(projectItem.id)}
-                  >
-                    <span className="eyebrow">{projectItem.clientName}</span>
-                    <strong>{projectItem.name}</strong>
-                    <span>{projectItem.description}</span>
-                    <small>
-                      {isAccessible ? `Deadline: ${projectItem.deadline}` : "Locked: not assigned"}
-                    </small>
-                  </button>
-                );
-              })}
-            </section>
+                  {filteredProjects.map((projectItem) => {
+                    const isAccessible = canOpenProject(projectItem.id);
+
+                    return (
+                      <button
+                        className={[
+                          "project-access-card",
+                          selectedProject.id === projectItem.id ? "project-access-card--active" : "",
+                          !isAccessible ? "project-access-card--locked" : ""
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        disabled={!isAccessible}
+                        key={projectItem.id}
+                        type="button"
+                        onClick={() => setSelectedProjectId(projectItem.id)}
+                        onDoubleClick={() => {
+                          if (isAccessible) {
+                            setSelectedProjectId(projectItem.id);
+                            setOpenedProjectId(projectItem.id);
+                          }
+                        }}
+                      >
+                        <span>
+                          <span className="eyebrow">{projectItem.clientName}</span>
+                          <strong>{projectItem.name}</strong>
+                          <span>{projectItem.description}</span>
+                        </span>
+                        <span className="project-access-card__meta">
+                          <small>Status: {projectItem.status}</small>
+                          <small>Deadline: {projectItem.deadline}</small>
+                          <small>{isAccessible ? "Double click to open" : "Locked: not assigned"}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {filteredProjects.length === 0 && (
+                    <div className="empty-table-state">No projects match the current filter.</div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <section className="project-detail-page" aria-label="Opened project detail">
+                <button
+                  className="back-button"
+                  type="button"
+                  onClick={() => setOpenedProjectId(null)}
+                >
+                  &lt;- Back to projects
+                </button>
+
+                <div className="project-detail-panel__header">
+                  <div>
+                    <p className="eyebrow">{openedProject.clientName}</p>
+                    <h2>{openedProject.name}</h2>
+                    <p>{openedProject.longDescription ?? openedProject.description}</p>
+                  </div>
+                </div>
+
+                <div className="project-detail-grid">
+                  <article>
+                    <span>Budget</span>
+                    <strong>
+                      {openedProject.usedHours}/{openedProject.budgetHours}h
+                    </strong>
+                  </article>
+                  <article>
+                    <span>Status</span>
+                    <strong>{openedProject.status}</strong>
+                  </article>
+                  <article>
+                    <span>Deadline</span>
+                    <strong>{openedProject.deadline}</strong>
+                  </article>
+                  <article>
+                    <span>Risk notes</span>
+                    <strong>{openedProject.riskNotes}</strong>
+                  </article>
+                </div>
+
+                <div className="project-detail-columns">
+                  <article>
+                    <h3>Assigned team</h3>
+                    {openedProjectTeam ? (
+                      <>
+                        <strong>{openedProjectTeam.name}</strong>
+                        <p>{openedProjectTeam.notes}</p>
+                        <ul>
+                          {openedProjectTeamMembers.map((member) => (
+                            <li key={member.id}>
+                              {member.name} {member.surname} - {member.role}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p>No team assigned.</p>
+                    )}
+                  </article>
+
+                  <article>
+                    <h3>Sprints to do</h3>
+                    {openedProjectSprints.length > 0 ? (
+                      <ul>
+                        {openedProjectSprints.map((sprintItem) => (
+                          <li key={sprintItem.id}>
+                            <strong>{sprintItem.name}</strong>
+                            <span>
+                              {sprintItem.startDate} to {sprintItem.endDate}
+                            </span>
+                            <p>{sprintItem.goal}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No sprint plan available yet.</p>
+                    )}
+                  </article>
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {activeView === "sprints" && (
+          <>
+            {!openedSprint || !openedSprintProject ? (
+              <>
+                <PageHeader
+                  currentProject={selectedProject}
+                  eyebrow="Sprints"
+                  title="Sprint planning overview"
+                  description={
+                    isAdmin
+                      ? "Admin users can open every sprint across every project."
+                      : "Sprints outside your project assignment are visible but locked."
+                  }
+                />
+
+                <section className="project-list" aria-label="Sprint access list">
+                  <div className="project-search-bar">
+                    <label htmlFor="sprint-search">Filter sprints</label>
+                    <input
+                      id="sprint-search"
+                      type="search"
+                      value={sprintSearch}
+                      onChange={(event) => setSprintSearch(event.target.value)}
+                      placeholder="Sprint, project, client, goal"
+                    />
+                  </div>
+
+                  {filteredSprints.map((sprintItem) => {
+                    const sprintProject = projects.find(
+                      (projectItem) => projectItem.id === sprintItem.projectId
+                    );
+                    const isAccessible = canOpenProject(sprintItem.projectId);
+
+                    return (
+                      <button
+                        className={[
+                          "project-access-card",
+                          openedSprint?.id === sprintItem.id ? "project-access-card--active" : "",
+                          !isAccessible ? "project-access-card--locked" : ""
+                        ]
+                          .filter(Boolean)
+                          .join(" ")}
+                        disabled={!isAccessible}
+                        key={sprintItem.id}
+                        type="button"
+                        onDoubleClick={() => {
+                          if (isAccessible) {
+                            setSelectedProjectId(sprintItem.projectId);
+                            setOpenedSprintId(sprintItem.id);
+                          }
+                        }}
+                      >
+                        <span>
+                          <span className="eyebrow">{sprintProject?.clientName ?? "No client"}</span>
+                          <strong>{sprintItem.name}</strong>
+                          <span>{sprintItem.goal}</span>
+                        </span>
+                        <span className="project-access-card__meta">
+                          <small>Project: {sprintProject?.name ?? "Unknown project"}</small>
+                          <small>Status: {sprintItem.status}</small>
+                          <small>
+                            {sprintItem.startDate} to {sprintItem.endDate}
+                          </small>
+                          <small>{isAccessible ? "Double click to open" : "Locked: not assigned"}</small>
+                        </span>
+                      </button>
+                    );
+                  })}
+
+                  {filteredSprints.length === 0 && (
+                    <div className="empty-table-state">No sprints match the current filter.</div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <section className="project-detail-page" aria-label="Opened sprint detail">
+                <button
+                  className="back-button"
+                  type="button"
+                  onClick={() => setOpenedSprintId(null)}
+                >
+                  &lt;- Back to sprints
+                </button>
+
+                <div className="project-detail-panel__header">
+                  <div>
+                    <p className="eyebrow">{openedSprintProject.name}</p>
+                    <h2>{openedSprint.name}</h2>
+                    <p>{openedSprint.longDescription ?? openedSprint.goal}</p>
+                  </div>
+                </div>
+
+                <div className="project-detail-grid">
+                  <article>
+                    <span>Client</span>
+                    <strong>{openedSprintProject.clientName}</strong>
+                  </article>
+                  <article>
+                    <span>Status</span>
+                    <strong>{openedSprint.status}</strong>
+                  </article>
+                  <article>
+                    <span>Start</span>
+                    <strong>{openedSprint.startDate}</strong>
+                  </article>
+                  <article>
+                    <span>End</span>
+                    <strong>{openedSprint.endDate}</strong>
+                  </article>
+                </div>
+
+                <div className="project-detail-columns">
+                  <article>
+                    <h3>Assigned team</h3>
+                    {openedSprintTeam ? (
+                      <>
+                        <strong>{openedSprintTeam.name}</strong>
+                        <p>{openedSprintTeam.notes}</p>
+                        <ul>
+                          {openedSprintTeamMembers.map((member) => (
+                            <li key={member.id}>
+                              {member.name} {member.surname} - {member.role}
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    ) : (
+                      <p>No team assigned.</p>
+                    )}
+                  </article>
+
+                  <article>
+                    <h3>Tasks in this sprint</h3>
+                    {openedSprintTasks.length > 0 ? (
+                      <ul>
+                        {openedSprintTasks.map((task) => (
+                          <li key={task.id}>
+                            <strong>{task.title}</strong>
+                            <span>
+                              {task.status} / {task.priority} priority
+                            </span>
+                            <p>
+                              {task.spentHours}/{task.estimateHours}h used
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No tasks have been assigned to this sprint yet.</p>
+                    )}
+                  </article>
+                </div>
+              </section>
+            )}
           </>
         )}
 

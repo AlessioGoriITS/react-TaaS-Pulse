@@ -6,6 +6,8 @@ export const projects: Project[] = [
     name: "Customer Portal Refresh",
     clientName: "Northwind Labs",
     description: "Refresh the customer portal dashboard and reporting workflow.",
+    longDescription:
+      "Northwind Labs needs a clearer customer-facing portal for tracking account health, support requests, and delivery reports. The current work focuses on a refreshed dashboard, reliable project reporting, and a simpler task flow for internal operators.",
     budgetHours: 420,
     usedHours: 236,
     deadline: "2026-08-21",
@@ -17,6 +19,8 @@ export const projects: Project[] = [
     name: "Internal Billing Console",
     clientName: "Acme Finance",
     description: "Build an internal console for invoice review and budget reporting.",
+    longDescription:
+      "Acme Finance wants an internal tool for reviewing invoices, tracking billable hours, and spotting budget drift before monthly close. The project is still early, with the team focused on safe data flows and a clean approval experience.",
     budgetHours: 260,
     usedHours: 82,
     deadline: "2026-09-12",
@@ -28,6 +32,8 @@ export const projects: Project[] = [
     name: "Partner Support Portal",
     clientName: "Globex Partners",
     description: "Create a support portal for partner onboarding and ticket routing.",
+    longDescription:
+      "Globex Partners needs a structured support portal where partner teams can submit onboarding requests, route tickets, and monitor response progress. The main delivery risk is an external API dependency that is still blocked by security review.",
     budgetHours: 340,
     usedHours: 312,
     deadline: "2026-07-30",
@@ -458,21 +464,70 @@ export const teams: Team[] = [
     memberIds: [1, 2, 3, 4],
     projectIds: [1],
     notes: "Small cross-functional team covering frontend, backend, UX, and QA."
+  },
+  {
+    id: 2,
+    name: "Billing Platform Team",
+    focusArea: "Finance operations and reporting",
+    leadId: 6,
+    memberIds: [5, 6, 7, 8],
+    projectIds: [2],
+    notes: "Delivery team focused on billing workflows, approval screens, and reliable reporting."
+  },
+  {
+    id: 3,
+    name: "Partner Experience Team",
+    focusArea: "Partner onboarding and support",
+    leadId: 10,
+    memberIds: [9, 10, 11, 12],
+    projectIds: [3],
+    notes: "Team assigned to partner-facing support flows and third-party API coordination."
   }
 ];
 
-export const sprint: Sprint = {
-  id: 1,
-  name: "Sprint 4",
-  goal: "Stabilize the dashboard and finish the reporting flow.",
-  startDate: "2026-07-06",
-  endDate: "2026-07-17"
-};
+export const sprints: Sprint[] = [
+  {
+    id: 1,
+    projectId: 1,
+    name: "Sprint 4",
+    goal: "Stabilize the dashboard and finish the reporting flow.",
+    longDescription:
+      "This sprint is focused on making the Customer Portal Refresh stable enough for a client-facing walkthrough. The team is tightening dashboard metrics, reviewing empty states, validating risk calculations, and preparing reliable demo data.",
+    startDate: "2026-07-06",
+    endDate: "2026-07-17",
+    status: "Active"
+  },
+  {
+    id: 2,
+    projectId: 2,
+    name: "Sprint 1",
+    goal: "Validate invoice review screens and budget summary data.",
+    longDescription:
+      "This sprint starts the Internal Billing Console by validating the core invoice review flow, early budget summary screens, and the minimum dataset needed for finance operators to trust the tool.",
+    startDate: "2026-07-20",
+    endDate: "2026-07-31",
+    status: "Planned"
+  },
+  {
+    id: 3,
+    projectId: 3,
+    name: "Recovery Sprint",
+    goal: "Unblock partner API integration and document fallback routing.",
+    longDescription:
+      "This sprint is a recovery pass for the Partner Support Portal. The team is trying to unblock the external API, document fallback routing, and reduce delivery risk before the deadline gets too close.",
+    startDate: "2026-07-13",
+    endDate: "2026-07-24",
+    status: "Blocked"
+  }
+];
+
+export const sprint = sprints[0];
 
 export const tasks: Task[] = [
   {
     id: 1,
     projectId: 1,
+    sprintId: 1,
     title: "Build dashboard summary cards",
     status: "Done",
     assigneeId: 1,
@@ -483,6 +538,7 @@ export const tasks: Task[] = [
   {
     id: 2,
     projectId: 1,
+    sprintId: 1,
     title: "Define project report API shape",
     status: "In Progress",
     assigneeId: 2,
@@ -493,6 +549,7 @@ export const tasks: Task[] = [
   {
     id: 3,
     projectId: 1,
+    sprintId: 1,
     title: "Review task board empty states",
     status: "Review",
     assigneeId: 3,
@@ -503,6 +560,7 @@ export const tasks: Task[] = [
   {
     id: 4,
     projectId: 1,
+    sprintId: 1,
     title: "Add risk calculation tests",
     status: "Todo",
     assigneeId: 4,
@@ -513,11 +571,56 @@ export const tasks: Task[] = [
   {
     id: 5,
     projectId: 1,
+    sprintId: 1,
     title: "Prepare demo data for interview walkthrough",
     status: "Todo",
     assigneeId: 1,
     estimateHours: 5,
     spentHours: 0,
     priority: "Low"
+  },
+  {
+    id: 6,
+    projectId: 2,
+    sprintId: 2,
+    title: "Map invoice approval states",
+    status: "Todo",
+    assigneeId: 6,
+    estimateHours: 8,
+    spentHours: 0,
+    priority: "High"
+  },
+  {
+    id: 7,
+    projectId: 2,
+    sprintId: 2,
+    title: "Prototype billing summary panel",
+    status: "Todo",
+    assigneeId: 5,
+    estimateHours: 10,
+    spentHours: 0,
+    priority: "Medium"
+  },
+  {
+    id: 8,
+    projectId: 3,
+    sprintId: 3,
+    title: "Document partner API blockers",
+    status: "In Progress",
+    assigneeId: 10,
+    estimateHours: 6,
+    spentHours: 3,
+    priority: "High"
+  },
+  {
+    id: 9,
+    projectId: 3,
+    sprintId: 3,
+    title: "Design fallback ticket routing",
+    status: "Review",
+    assigneeId: 11,
+    estimateHours: 7,
+    spentHours: 5,
+    priority: "High"
   }
 ];

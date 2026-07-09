@@ -692,15 +692,40 @@ button {
 
 .project-list {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.project-search-bar {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.project-search-bar label {
+  color: #4b5a6d;
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.project-search-bar input {
+  width: 100%;
+  padding: 10px 11px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  color: #18212f;
 }
 
 .project-access-card {
-  min-height: 230px;
+  min-height: 0;
   display: grid;
-  align-content: start;
-  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
   padding: 18px;
   border: 1px solid #dce3ee;
   border-radius: 8px;
@@ -708,6 +733,11 @@ button {
   color: #18212f;
   text-align: left;
   box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.project-access-card > span:first-child {
+  display: grid;
+  gap: 8px;
 }
 
 .project-access-card:hover,
@@ -725,6 +755,13 @@ button {
   color: #687789;
 }
 
+.project-access-card__meta {
+  display: grid;
+  gap: 6px;
+  min-width: 180px;
+  text-align: right;
+}
+
 .project-access-card--locked {
   cursor: not-allowed;
   filter: grayscale(1);
@@ -734,6 +771,109 @@ button {
 .project-access-card--locked:hover {
   border-color: #dce3ee;
   background: #ffffff;
+}
+
+.project-detail-page {
+  display: grid;
+  gap: 20px;
+  padding: 22px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.back-button {
+  width: fit-content;
+  padding: 10px 12px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #3267d6;
+  font-weight: 800;
+}
+
+.project-detail-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.project-detail-panel__header h2,
+.project-detail-panel__header p {
+  margin: 0;
+}
+
+.project-detail-panel__header h2 {
+  margin-bottom: 10px;
+  font-size: 2rem;
+}
+
+.project-detail-panel__header p:not(.eyebrow) {
+  color: #4b5a6d;
+  line-height: 1.6;
+}
+
+.project-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.project-detail-grid article,
+.project-detail-columns article {
+  padding: 16px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.project-detail-grid span {
+  display: block;
+  margin-bottom: 8px;
+  color: #687789;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.project-detail-grid strong {
+  font-size: 1.05rem;
+}
+
+.project-detail-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.project-detail-columns h3,
+.project-detail-columns p,
+.project-detail-columns ul {
+  margin: 0;
+}
+
+.project-detail-columns h3 {
+  margin-bottom: 12px;
+}
+
+.project-detail-columns p {
+  color: #687789;
+  line-height: 1.5;
+}
+
+.project-detail-columns ul {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+  margin-top: 12px;
+}
+
+.project-detail-columns li span {
+  display: block;
+  color: #687789;
+  font-size: 0.88rem;
 }
 
 .app-footer {
@@ -855,7 +995,7 @@ button {
   }
 
   .fast-nav {
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    grid-template-columns: repeat(6, minmax(150px, 1fr));
     overflow-x: auto;
   }
 
@@ -871,7 +1011,8 @@ button {
   .metrics-grid,
   .board,
   .detail-grid,
-  .project-list,
+  .project-detail-grid,
+  .project-detail-columns,
   .filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -903,9 +1044,21 @@ button {
   .metrics-grid,
   .board,
   .detail-grid,
-  .project-list,
+  .project-detail-grid,
+  .project-detail-columns,
   .filter-panel {
     grid-template-columns: 1fr;
+  }
+
+  .project-access-card,
+  .project-detail-panel__header {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+  }
+
+  .project-access-card__meta {
+    min-width: 0;
+    text-align: left;
   }
 
   .table-row,
