@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
@@ -37,6 +37,7 @@ type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 function App() {
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProject.id);
+  const [dashboardProjectId, setDashboardProjectId] = useState(defaultProject.id);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -148,10 +149,6 @@ function App() {
   const selectedProjectSprints = sprintRecords.filter(
     (sprintItem) => sprintItem.projectId === selectedProject.id
   );
-  const currentSprint =
-    selectedProjectSprints.find((sprintItem) => sprintItem.status === "Active") ??
-    selectedProjectSprints[0] ??
-    defaultSprint;
   const selectedProjectTasks = tasks.filter((task) => task.projectId === selectedProject.id);
   const selectedSprint =
     selectedProjectSprints.find((sprintItem) => sprintItem.id === selectedSprintId) ?? null;
@@ -166,15 +163,6 @@ function App() {
     visibleTeam.memberIds.includes(member.id)
   );
 
-  const budgetUsage = useMemo(() => getBudgetUsagePercent(selectedProject), [selectedProject]);
-  const taskCompletion = useMemo(
-    () => getTaskCompletionPercent(selectedProjectTasks),
-    [selectedProjectTasks]
-  );
-  const deliveryRisk = useMemo(
-    () => getDeliveryRisk(selectedProject, selectedProjectTasks),
-    [selectedProject, selectedProjectTasks]
-  );
   const totalCapacity = visibleTeamMembers.reduce(
     (total, member) => total + member.weeklyCapacityHours,
     0
@@ -332,6 +320,126 @@ function App() {
           : 0
     };
   });
+  const dashboardProject =
+    projectRecords.find((projectItem) => projectItem.id === dashboardProjectId) ??
+    projectRecords[0];
+  const dashboardProjectIndex = Math.max(
+    projectRecords.findIndex((projectItem) => projectItem.id === dashboardProject.id),
+    0
+  );
+  const dashboardProjectTasks = tasks.filter((task) => task.projectId === dashboardProject.id);
+  const dashboardProjectSprints = sprintRecords.filter(
+    (sprintItem) => sprintItem.projectId === dashboardProject.id
+  );
+  const dashboardCurrentSprint =
+    dashboardProjectSprints.find((sprintItem) => sprintItem.status === "Active") ??
+    dashboardProjectSprints[0] ??
+    defaultSprint;
+  const openDashboardTasks = dashboardProjectTasks.filter((task) => task.status !== "Done");
+  const highPriorityDashboardTasks = openDashboardTasks.filter(
+    (task) => task.priority === "High"
+  );
+  const dashboardBudgetUsage = getBudgetUsagePercent(dashboardProject);
+  const dashboardTaskCompletion = getTaskCompletionPercent(dashboardProjectTasks);
+  const dashboardDeliveryRisk = getDeliveryRisk(dashboardProject, dashboardProjectTasks);
+  const dashboardCurrentSprintTasks = dashboardProjectTasks.filter(
+    (task) => task.sprintId === dashboardCurrentSprint.id
+  );
+  const dashboardCurrentSprintCompletion = getTaskCompletionPercent(
+    dashboardCurrentSprintTasks
+  );
+  const dashboardProjectTaskHours = dashboardProjectTasks.reduce(
+    (total, task) => total + task.estimateHours,
+    0
+  );
+  const dashboardProjectTeam = teamRecords.find((team) =>
+    team.projectIds.includes(dashboardProject.id)
+  );
+  const dashboardProjectTeamMembers = dashboardProjectTeam
+    ? teamMemberRecords.filter((member) => dashboardProjectTeam.memberIds.includes(member.id))
+    : [];
+  const dashboardTeamCapacity = dashboardProjectTeamMembers.reduce(
+    (total, member) => total + member.weeklyCapacityHours,
+    0
+  );
+  const dashboardTeamUtilization =
+    dashboardTeamCapacity > 0
+      ? Math.min(Math.round((dashboardProjectTaskHours / dashboardTeamCapacity) * 100), 100)
+      : 0;
+  const portfolioBudgetHours = projectRecords.reduce(
+    (total, projectItem) => total + projectItem.budgetHours,
+    0
+  );
+  const portfolioUsedHours = projectRecords.reduce(
+    (total, projectItem) => total + projectItem.usedHours,
+    0
+  );
+  const portfolioBudgetUsage =
+    portfolioBudgetHours > 0 ? Math.round((portfolioUsedHours / portfolioBudgetHours) * 100) : 0;
+  const portfolioDoneTasks = tasks.filter((task) => task.status === "Done");
+  const portfolioCompletion =
+    tasks.length > 0 ? Math.round((portfolioDoneTasks.length / tasks.length) * 100) : 0;
+  const portfolioOpenTasks = tasks.filter((task) => task.status !== "Done");
+  const atRiskProjectCount = projectRecords.filter(
+    (projectItem) => projectItem.status !== "On Track"
+  ).length;
+  const portfolioCapacity = teamMemberRecords.reduce(
+    (total, member) => total + member.weeklyCapacityHours,
+    0
+  );
+  const riskLabel =
+    atRiskProjectCount > 0 || portfolioBudgetUsage > 75
+      ? "Immediate action"
+      : portfolioOpenTasks.length > portfolioDoneTasks.length
+        ? "Watch closely"
+        : "Portfolio healthy";
+  const projectHealthItems = [
+    { label: "Budget", value: `${dashboardBudgetUsage}% used` },
+    { label: "Progress", value: `${dashboardTaskCompletion}% complete` },
+    { label: "Sprint", value: `${dashboardCurrentSprintCompletion}% complete` },
+    { label: "Team load", value: `${dashboardTeamUtilization}% planned` }
+  ];
+  const dashboardFocusItems = [
+    {
+      title: "Active projects",
+      value: String(projectRecords.length),
+      helper: `${atRiskProjectCount} need attention`
+    },
+    {
+      title: "Open work",
+      value: String(portfolioOpenTasks.length),
+      helper: `${portfolioCompletion}% portfolio task completion`
+    },
+    {
+      title: "Total capacity",
+      value: `${portfolioCapacity}h`,
+      helper: `${teamMemberRecords.length} people in the workspace`
+    }
+  ];
+  const topTeamLoads = dashboardProjectTeamMembers.map((member) => {
+    const assignedHours = dashboardProjectTasks
+      .filter((task) => task.assigneeId === member.id)
+      .reduce((total, task) => total + task.estimateHours, 0);
+
+    return {
+      member,
+      assignedHours,
+      loadPercent:
+        member.weeklyCapacityHours > 0
+          ? Math.min(Math.round((assignedHours / member.weeklyCapacityHours) * 100), 100)
+          : 0
+    };
+  });
+  const dashboardActivityItems = [
+    ...highPriorityDashboardTasks.slice(0, 2).map((task) => ({
+      title: task.title,
+      meta: `${task.status} / ${task.priority} priority`
+    })),
+    ...openDashboardTasks.slice(0, 3).map((task) => ({
+      title: task.title,
+      meta: `${task.status} / ${task.estimateHours}h estimate`
+    }))
+  ].slice(0, 4);
   useEffect(() => {
     if (authUser?.role === "user" && (activeView === "dependents" || activeView === "admin")) {
       setActiveView("dashboard");
@@ -645,6 +753,16 @@ function App() {
     }
   }
 
+  function handleDashboardProjectMove(direction: -1 | 1) {
+    if (projectRecords.length === 0) {
+      return;
+    }
+
+    const nextIndex =
+      (dashboardProjectIndex + direction + projectRecords.length) % projectRecords.length;
+    setDashboardProjectId(projectRecords[nextIndex].id);
+  }
+
   function handleDeleteOpenedProject(projectToDelete: Project) {
     if (projectRecords.length <= 1) {
       window.alert("You cannot delete the last project in the demo workspace.");
@@ -689,6 +807,10 @@ function App() {
 
     if (nextProject && selectedProjectId === projectToDelete.id) {
       setSelectedProjectId(nextProject.id);
+    }
+
+    if (nextProject && dashboardProjectId === projectToDelete.id) {
+      setDashboardProjectId(nextProject.id);
     }
 
     if (openedSprint?.projectId === projectToDelete.id) {
@@ -1154,45 +1276,192 @@ function App() {
             <PageHeader
               currentProject={selectedProject}
               eyebrow="Dashboard"
-              title={selectedProject.name}
-              description="A compact project-health dashboard for tracking budget, sprint progress, team capacity, and delivery risk."
+              title="Portfolio dashboard"
+              description="A general workspace view for portfolio health, team capacity, budget usage, active work, and a manual project carousel."
             />
 
-            <section className="metrics-grid" aria-label="Project metrics">
+            <section className="dashboard-overview" aria-label="Dashboard overview">
+              <div className="dashboard-hero-panel">
+                <div className="dashboard-hero-panel__top">
+                  <div>
+                    <p className="eyebrow">Workspace overview</p>
+                    <h2>{riskLabel}</h2>
+                    <p>
+                      {projectRecords.length} active projects, {sprintRecords.length} sprint
+                      plans, and {portfolioOpenTasks.length} open tasks across the workspace.
+                    </p>
+                  </div>
+                  <div className="dashboard-hero-panel__meta">
+                    <span>Portfolio budget</span>
+                    <strong>{portfolioBudgetUsage}% used</strong>
+                  </div>
+                </div>
+
+                <div className="dashboard-signal-grid" aria-label="Portfolio signals">
+                  <div>
+                    <span>Risk projects</span>
+                    <strong>{atRiskProjectCount}</strong>
+                    <small>Require attention</small>
+                  </div>
+                  <div>
+                    <span>Completion</span>
+                    <strong>{portfolioCompletion}%</strong>
+                    <small>{portfolioDoneTasks.length} tasks closed</small>
+                  </div>
+                  <div>
+                    <span>Open workload</span>
+                    <strong>{portfolioOpenTasks.length}</strong>
+                    <small>Tasks still active</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-focus-grid">
+                {dashboardFocusItems.map((item) => (
+                  <article className="dashboard-focus-card" key={item.title}>
+                    <span>{item.title}</span>
+                    <strong>{item.value}</strong>
+                    <p>{item.helper}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="metrics-grid" aria-label="Portfolio metrics">
               <MetricCard
-                label="Budget used"
-                value={`${budgetUsage}%`}
-                helper={`${selectedProject.usedHours} of ${selectedProject.budgetHours} hours`}
-                tone={budgetUsage > 70 ? "warning" : "neutral"}
+                label="Active projects"
+                value={String(projectRecords.length)}
+                helper={`${atRiskProjectCount} at risk or blocked`}
+                tone={atRiskProjectCount > 0 ? "warning" : "neutral"}
+              />
+              <MetricCard
+                label="Portfolio budget"
+                value={`${portfolioBudgetUsage}%`}
+                helper={`${portfolioUsedHours} of ${portfolioBudgetHours} hours used`}
+                tone={portfolioBudgetUsage > 75 ? "warning" : "neutral"}
               />
               <MetricCard
                 label="Task completion"
-                value={`${taskCompletion}%`}
-                helper={`${selectedProjectTasks.filter((task) => task.status === "Done").length} of ${selectedProjectTasks.length} tasks done`}
+                value={`${portfolioCompletion}%`}
+                helper={`${portfolioDoneTasks.length} of ${tasks.length} tasks done`}
                 tone="success"
               />
               <MetricCard
-                label="Weekly capacity"
-                value={`${totalCapacity}h`}
-                helper={`${visibleTeamMembers.length} people assigned`}
-              />
-              <MetricCard
-                label="Delivery risk"
-                value={deliveryRisk}
-                helper={`Project status: ${selectedProject.status}`}
-                tone={deliveryRisk === "Medium" ? "warning" : "neutral"}
+                label="Team capacity"
+                value={`${portfolioCapacity}h`}
+                helper={`${teamMemberRecords.length} people in the workspace`}
+                tone="neutral"
               />
             </section>
 
-            <section className="sprint-summary">
-              <div>
-                <p className="eyebrow">Current sprint</p>
-                <h2>{currentSprint.name}</h2>
-                <p>{currentSprint.goal}</p>
-              </div>
-              <span>
-                {currentSprint.startDate} to {currentSprint.endDate}
-              </span>
+            <section className="dashboard-main-grid" aria-label="Dashboard detail panels">
+              <article className="dashboard-panel dashboard-panel--wide">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Project carousel</p>
+                    <h2>{dashboardProject.name}</h2>
+                  </div>
+                  <div className="dashboard-carousel-controls">
+                    <span>
+                      {dashboardProjectIndex + 1}/{projectRecords.length}
+                    </span>
+                    <button type="button" onClick={() => handleDashboardProjectMove(-1)}>
+                      Previous
+                    </button>
+                    <button type="button" onClick={() => handleDashboardProjectMove(1)}>
+                      Next
+                    </button>
+                  </div>
+                </div>
+                <p>
+                  {dashboardProject.clientName} / {dashboardProject.description}
+                </p>
+                <small>{dashboardProject.riskNotes}</small>
+
+                <div className="dashboard-health-list">
+                  {projectHealthItems.map((item) => (
+                    <div className="dashboard-health-row" key={item.label}>
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                    </div>
+                  ))}
+                </div>
+                <small>
+                  Delivery risk: {dashboardDeliveryRisk} / Project status:{" "}
+                  {dashboardProject.status}
+                </small>
+              </article>
+
+              <article className="dashboard-panel">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Focused sprint</p>
+                    <h2>{dashboardCurrentSprint.name}</h2>
+                  </div>
+                  <span>{dashboardCurrentSprint.status}</span>
+                </div>
+                <p>{dashboardCurrentSprint.goal}</p>
+                <div className="dashboard-progress">
+                  <span style={{ width: `${dashboardCurrentSprintCompletion}%` }} />
+                </div>
+                <small>
+                  {dashboardCurrentSprint.startDate} to {dashboardCurrentSprint.endDate} /{" "}
+                  {dashboardCurrentSprintCompletion}% complete
+                </small>
+              </article>
+
+              <article className="dashboard-panel">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Needs attention</p>
+                    <h2>Focused open work</h2>
+                  </div>
+                  <span>{openDashboardTasks.length}</span>
+                </div>
+                <div className="dashboard-list">
+                  {dashboardActivityItems.length > 0 ? (
+                    dashboardActivityItems.map((item) => (
+                      <div className="dashboard-list-item" key={`${item.title}-${item.meta}`}>
+                        <strong>{item.title}</strong>
+                        <span>{item.meta}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No open task needs attention for this project.</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="dashboard-panel dashboard-panel--wide">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Team workload</p>
+                    <h2>{dashboardProjectTeam?.name ?? "Assigned team"}</h2>
+                  </div>
+                  <span>{dashboardProjectTeamMembers.length} people</span>
+                </div>
+                <div className="dashboard-workload">
+                  {topTeamLoads.length > 0 ? (
+                    topTeamLoads.map((loadItem) => (
+                      <div className="dashboard-workload-row" key={loadItem.member.id}>
+                        <div>
+                          <strong>
+                            {loadItem.member.name} {loadItem.member.surname}
+                          </strong>
+                          <span>
+                            {loadItem.assignedHours}h / {loadItem.member.weeklyCapacityHours}h
+                          </span>
+                        </div>
+                        <div className="dashboard-progress">
+                          <span style={{ width: `${loadItem.loadPercent}%` }} />
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No assigned team for this project.</p>
+                  )}
+                </div>
+              </article>
             </section>
           </>
         )}

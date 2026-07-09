@@ -414,6 +414,226 @@ button {
   border-color: #8fd3a3;
 }
 
+.dashboard-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.95fr);
+  align-items: start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dashboard-hero-panel,
+.dashboard-focus-card,
+.dashboard-panel {
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.dashboard-hero-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  align-self: start;
+  gap: 16px;
+  padding: 20px;
+}
+
+.dashboard-hero-panel__top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+}
+
+.dashboard-hero-panel h2,
+.dashboard-hero-panel p,
+.dashboard-panel h2,
+.dashboard-panel p,
+.dashboard-focus-card p {
+  margin: 0;
+}
+
+.dashboard-hero-panel h2 {
+  margin-bottom: 8px;
+  font-size: 1.65rem;
+}
+
+.dashboard-hero-panel p,
+.dashboard-panel p,
+.dashboard-panel small,
+.dashboard-focus-card span,
+.dashboard-focus-card p,
+.dashboard-health-row span,
+.dashboard-list-item span,
+.dashboard-workload-row span {
+  color: #687789;
+}
+
+.dashboard-hero-panel__meta {
+  display: grid;
+  gap: 6px;
+  min-width: 160px;
+  padding: 12px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #f8fbff;
+  text-align: right;
+}
+
+.dashboard-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.dashboard-signal-grid div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.dashboard-signal-grid span,
+.dashboard-signal-grid small {
+  color: #687789;
+}
+
+.dashboard-signal-grid strong {
+  font-size: 1.2rem;
+}
+
+.dashboard-focus-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.dashboard-focus-card {
+  padding: 16px;
+}
+
+.dashboard-focus-card strong {
+  display: block;
+  margin: 8px 0 4px;
+  font-size: 1.45rem;
+}
+
+.dashboard-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+}
+
+.dashboard-panel {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: 18px;
+}
+
+.dashboard-panel--wide {
+  grid-column: span 1;
+}
+
+.dashboard-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dashboard-panel__header span {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #edf2fb;
+  color: #3267d6;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.dashboard-carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dashboard-carousel-controls button {
+  border: 1px solid #c9d5e6;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #1f2a3d;
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.dashboard-carousel-controls button:hover {
+  border-color: #3267d6;
+  color: #3267d6;
+}
+
+.dashboard-health-list,
+.dashboard-list,
+.dashboard-workload {
+  display: grid;
+  gap: 10px;
+}
+
+.dashboard-health-row,
+.dashboard-list-item,
+.dashboard-workload-row {
+  padding: 12px;
+  border: 1px solid #e7edf5;
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.dashboard-health-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-list-item {
+  display: grid;
+  gap: 4px;
+}
+
+.dashboard-workload-row {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-workload-row > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-progress {
+  overflow: hidden;
+  height: 9px;
+  border-radius: 999px;
+  background: #e8eef7;
+}
+
+.dashboard-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #3267d6;
+}
+
 .sprint-summary {
   display: flex;
   align-items: center;
@@ -1426,6 +1646,8 @@ button {
   }
 
   .metrics-grid,
+  .dashboard-overview,
+  .dashboard-main-grid,
   .execution-kpis,
   .execution-layout,
   .execution-health,
@@ -1477,6 +1699,10 @@ button {
   }
 
   .project-access-card,
+  .dashboard-hero-panel,
+  .dashboard-hero-panel__top,
+  .dashboard-panel__header,
+  .dashboard-carousel-controls,
   .execution-hero,
   .execution-panel__header,
   .execution-board-header,
@@ -1490,6 +1716,15 @@ button {
   .execution-hero__meta {
     min-width: 0;
     text-align: left;
+  }
+
+  .dashboard-hero-panel__meta {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .dashboard-signal-grid {
+    grid-template-columns: 1fr;
   }
 
   .project-access-card__meta {
