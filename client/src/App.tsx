@@ -30,6 +30,10 @@ function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [isEmployeeAutocompleteOpen, setIsEmployeeAutocompleteOpen] = useState(false);
+  const [employeeJobFilter, setEmployeeJobFilter] = useState("all");
+  const [employeeProjectFilter, setEmployeeProjectFilter] = useState("all");
 
   const isAdmin = authUser?.role === "admin";
   const loggedEmployee = authUser?.employeeId
@@ -68,6 +72,42 @@ function App() {
     0
   );
   const teamLead = teamMembers.find((member) => member.id === visibleTeam.leadId);
+  const jobOptions = Array.from(new Set(teamMembers.map((member) => member.role))).sort();
+  const employeeSearchValue = employeeSearch.trim().toLowerCase();
+  const normalizedEmployeePhoneSearch = normalizePhoneSearch(employeeSearch);
+  const employeeSuggestions =
+    employeeSearchValue.length === 0
+      ? []
+      : teamMembers
+          .filter((member) => {
+            const fullName = `${member.name} ${member.surname}`.toLowerCase();
+            const memberPhone = normalizePhoneSearch(member.phoneNumber);
+            return (
+              fullName.includes(employeeSearchValue) ||
+              member.email.toLowerCase().includes(employeeSearchValue) ||
+              member.phoneNumber.toLowerCase().includes(employeeSearchValue) ||
+              (normalizedEmployeePhoneSearch.length > 0 &&
+                memberPhone.includes(normalizedEmployeePhoneSearch))
+            );
+          })
+          .slice(0, 8);
+  const filteredTeamMembers = teamMembers.filter((member) => {
+    const fullName = `${member.name} ${member.surname}`.toLowerCase();
+    const memberPhone = normalizePhoneSearch(member.phoneNumber);
+    const matchesSearch =
+      employeeSearchValue.length === 0 ||
+      fullName.includes(employeeSearchValue) ||
+      member.email.toLowerCase().includes(employeeSearchValue) ||
+      member.phoneNumber.toLowerCase().includes(employeeSearchValue) ||
+      (normalizedEmployeePhoneSearch.length > 0 &&
+        memberPhone.includes(normalizedEmployeePhoneSearch));
+    const matchesJob = employeeJobFilter === "all" || member.role === employeeJobFilter;
+    const matchesProject =
+      employeeProjectFilter === "all" ||
+      member.projectIds.includes(Number(employeeProjectFilter));
+
+    return matchesSearch && matchesJob && matchesProject;
+  });
 
   useEffect(() => {
     if (authUser?.role === "user" && activeView === "dependents") {
@@ -340,6 +380,93 @@ function App() {
               description="People available for project delivery, with contact data, job information, and capacity."
             />
 
+            <section className="filter-panel" aria-label="Employee filters">
+              <div className="autocomplete-field">
+                <label htmlFor="employee-search">Search</label>
+                <input
+                  id="employee-search"
+                  type="search"
+                  value={employeeSearch}
+                  onBlur={() => setIsEmployeeAutocompleteOpen(false)}
+                  onChange={(event) => {
+                    setEmployeeSearch(event.target.value);
+                    setIsEmployeeAutocompleteOpen(true);
+                  }}
+                  onFocus={() => setIsEmployeeAutocompleteOpen(true)}
+                  placeholder="Name, email, phone"
+                />
+
+                {isEmployeeAutocompleteOpen && employeeSuggestions.length > 0 && (
+                  <div className="autocomplete-list" role="listbox">
+                    {employeeSuggestions.map((member) => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        role="option"
+                        onMouseDown={(event) => {
+                          event.preventDefault();
+                          setEmployeeSearch(`${member.name} ${member.surname}`);
+                          setIsEmployeeAutocompleteOpen(false);
+                        }}
+                      >
+                        <strong>
+                          {member.name} {member.surname}
+                        </strong>
+                        <span>{member.email}</span>
+                        <small>{member.phoneNumber}</small>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <label>
+                Job
+                <select
+                  value={employeeJobFilter}
+                  onChange={(event) => setEmployeeJobFilter(event.target.value)}
+                >
+                  <option value="all">All jobs</option>
+                  {jobOptions.map((job) => (
+                    <option key={job} value={job}>
+                      {job}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                Project
+                <select
+                  value={employeeProjectFilter}
+                  onChange={(event) => setEmployeeProjectFilter(event.target.value)}
+                >
+                  <option value="all">All projects</option>
+                  {projects.map((projectItem) => (
+                    <option key={projectItem.id} value={projectItem.id}>
+                      {projectItem.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setEmployeeSearch("");
+                  setIsEmployeeAutocompleteOpen(false);
+                  setEmployeeJobFilter("all");
+                  setEmployeeProjectFilter("all");
+                }}
+              >
+                Reset
+              </button>
+            </section>
+
+            <p className="result-summary">
+              Showing {filteredTeamMembers.length} of {teamMembers.length} employees.
+            </p>
+
             <section className="table-panel" aria-label="Employee directory">
               <div className="table-row table-row--head">
                 <span>Name</span>
@@ -349,7 +476,7 @@ function App() {
                 <span>Weekly hours</span>
               </div>
 
-              {teamMembers.map((member) => (
+              {filteredTeamMembers.map((member) => (
                 <div className="table-row" key={member.id}>
                   <span>
                     <strong>
@@ -366,6 +493,12 @@ function App() {
                   <span>{member.weeklyCapacityHours}h</span>
                 </div>
               ))}
+
+              {filteredTeamMembers.length === 0 && (
+                <div className="empty-table-state">
+                  No employees match the selected filters.
+                </div>
+              )}
             </section>
           </>
         )}
@@ -477,6 +610,10 @@ type PageHeaderProps = {
   title: string;
   description: string;
 };
+
+function normalizePhoneSearch(value: string) {
+  return value.replace(/\D/g, "");
+}
 
 function PageHeader({ currentProject, eyebrow, title, description }: PageHeaderProps) {
   return (
