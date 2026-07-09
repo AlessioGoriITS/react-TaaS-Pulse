@@ -2,13 +2,23 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
-import { project, projects, sprint, sprints as initialSprints, tasks, teamMembers, teams } from "./data/demoData";
+import {
+  projects as initialProjects,
+  sprints as initialSprints,
+  tasks,
+  teamMembers,
+  teams
+} from "./data/demoData";
 import {
   getBudgetUsagePercent,
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { AuthUser, Sprint, ViewId } from "./types";
+import type { AuthUser, Project, Sprint, ViewId } from "./types";
+
+const defaultProject = initialProjects[0];
+const defaultSprint = initialSprints[0];
+const defaultDefinitionOfDone = "Code reviewed, tested, documented, and ready for demo.";
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "dashboard", label: "Dashboard", helper: "Project health" },
@@ -24,7 +34,7 @@ type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
 function App() {
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
-  const [selectedProjectId, setSelectedProjectId] = useState(project.id);
+  const [selectedProjectId, setSelectedProjectId] = useState(defaultProject.id);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -36,13 +46,16 @@ function App() {
   const [isEmployeeAutocompleteOpen, setIsEmployeeAutocompleteOpen] = useState(false);
   const [employeeJobFilter, setEmployeeJobFilter] = useState("all");
   const [employeeProjectFilter, setEmployeeProjectFilter] = useState("all");
+  const [projectRecords, setProjectRecords] = useState<Project[]>(initialProjects);
   const [projectSearch, setProjectSearch] = useState("");
   const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
   const [sprintSearch, setSprintSearch] = useState("");
   const [sprintRecords, setSprintRecords] = useState<Sprint[]>(initialSprints);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
   const [openedSprintId, setOpenedSprintId] = useState<number | null>(null);
-  const [newSprintProjectId, setNewSprintProjectId] = useState(String(project.id));
+  const [sprintFormMode, setSprintFormMode] = useState<"create" | "edit">("create");
+  const [editedSprintId, setEditedSprintId] = useState(String(defaultSprint.id));
+  const [newSprintProjectId, setNewSprintProjectId] = useState(String(defaultProject.id));
   const [newSprintName, setNewSprintName] = useState("");
   const [newSprintGoal, setNewSprintGoal] = useState("");
   const [newSprintDescription, setNewSprintDescription] = useState("");
@@ -51,30 +64,56 @@ function App() {
   const [newSprintStatus, setNewSprintStatus] = useState<Sprint["status"]>("Planned");
   const [newSprintCapacityHours, setNewSprintCapacityHours] = useState("80");
   const [newSprintFocus, setNewSprintFocus] = useState("Feature delivery");
-  const [newSprintDefinitionOfDone, setNewSprintDefinitionOfDone] = useState(
-    "Code reviewed, tested, documented, and ready for demo."
-  );
+  const [newSprintDefinitionOfDone, setNewSprintDefinitionOfDone] =
+    useState(defaultDefinitionOfDone);
   const [newSprintRisks, setNewSprintRisks] = useState("");
   const [newSprintBacklogNotes, setNewSprintBacklogNotes] = useState("");
   const [sprintCreatorMessage, setSprintCreatorMessage] = useState("");
+  const [adminEditSection, setAdminEditSection] = useState<"sprints" | "projects">("sprints");
+  const [projectFormMode, setProjectFormMode] = useState<"create" | "edit">("edit");
+  const [editedProjectId, setEditedProjectId] = useState(String(defaultProject.id));
+  const [editedProjectName, setEditedProjectName] = useState(defaultProject.name);
+  const [editedProjectClientName, setEditedProjectClientName] = useState(defaultProject.clientName);
+  const [editedProjectDescription, setEditedProjectDescription] = useState(
+    defaultProject.description
+  );
+  const [editedProjectLongDescription, setEditedProjectLongDescription] = useState(
+    defaultProject.longDescription ?? ""
+  );
+  const [editedProjectBudgetHours, setEditedProjectBudgetHours] = useState(
+    String(defaultProject.budgetHours)
+  );
+  const [editedProjectUsedHours, setEditedProjectUsedHours] = useState(
+    String(defaultProject.usedHours)
+  );
+  const [editedProjectDeadline, setEditedProjectDeadline] = useState(defaultProject.deadline);
+  const [editedProjectStatus, setEditedProjectStatus] = useState<Project["status"]>(
+    defaultProject.status
+  );
+  const [editedProjectRiskNotes, setEditedProjectRiskNotes] = useState(defaultProject.riskNotes);
+  const [projectEditorMessage, setProjectEditorMessage] = useState("");
 
   const isAdmin = authUser?.role === "admin";
   const loggedEmployee = authUser?.employeeId
     ? teamMembers.find((member) => member.id === authUser.employeeId)
     : undefined;
   const accessibleProjectIds = isAdmin
-    ? projects.map((projectItem) => projectItem.id)
+    ? projectRecords.map((projectItem) => projectItem.id)
     : loggedEmployee?.projectIds ?? [];
   const selectedProject =
-    projects.find(
+    projectRecords.find(
       (projectItem) =>
         projectItem.id === selectedProjectId && accessibleProjectIds.includes(projectItem.id)
     ) ??
-    projects.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
-    projects[0];
+    projectRecords.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
+    projectRecords[0];
   const selectedProjectSprints = sprintRecords.filter(
     (sprintItem) => sprintItem.projectId === selectedProject.id
   );
+  const currentSprint =
+    selectedProjectSprints.find((sprintItem) => sprintItem.status === "Active") ??
+    selectedProjectSprints[0] ??
+    defaultSprint;
   const selectedProjectTasks = tasks.filter((task) => task.projectId === selectedProject.id);
   const selectedSprint =
     selectedProjectSprints.find((sprintItem) => sprintItem.id === selectedSprintId) ?? null;
@@ -140,7 +179,7 @@ function App() {
     return matchesSearch && matchesJob && matchesProject;
   });
   const projectSearchValue = projectSearch.trim().toLowerCase();
-  const filteredProjects = projects.filter((projectItem) => {
+  const filteredProjects = projectRecords.filter((projectItem) => {
     if (projectSearchValue.length === 0) {
       return true;
     }
@@ -151,7 +190,7 @@ function App() {
     );
   });
   const openedProject = openedProjectId
-    ? projects.find((projectItem) => projectItem.id === openedProjectId)
+    ? projectRecords.find((projectItem) => projectItem.id === openedProjectId)
     : undefined;
   const openedProjectTeam = openedProject
     ? teams.find((team) => team.projectIds.includes(openedProject.id))
@@ -164,7 +203,9 @@ function App() {
     : [];
   const sprintSearchValue = sprintSearch.trim().toLowerCase();
   const filteredSprints = sprintRecords.filter((sprintItem) => {
-    const sprintProject = projects.find((projectItem) => projectItem.id === sprintItem.projectId);
+    const sprintProject = projectRecords.find(
+      (projectItem) => projectItem.id === sprintItem.projectId
+    );
 
     if (sprintSearchValue.length === 0) {
       return true;
@@ -181,7 +222,7 @@ function App() {
     ? sprintRecords.find((sprintItem) => sprintItem.id === openedSprintId)
     : undefined;
   const openedSprintProject = openedSprint
-    ? projects.find((projectItem) => projectItem.id === openedSprint.projectId)
+    ? projectRecords.find((projectItem) => projectItem.id === openedSprint.projectId)
     : undefined;
   const openedSprintTeam = openedSprintProject
     ? teams.find((team) => team.projectIds.includes(openedSprintProject.id))
@@ -241,7 +282,6 @@ function App() {
           : 0
     };
   });
-
   useEffect(() => {
     if (authUser?.role === "user" && (activeView === "dependents" || activeView === "admin")) {
       setActiveView("dashboard");
@@ -297,12 +337,98 @@ function App() {
     setIsAccountMenuOpen(false);
   }
 
-  function handleCreateSprint(event: FormEvent<HTMLFormElement>) {
+  function populateSprintForm(sprintToEdit: Sprint) {
+    setNewSprintProjectId(String(sprintToEdit.projectId));
+    setNewSprintName(sprintToEdit.name);
+    setNewSprintGoal(sprintToEdit.goal);
+    setNewSprintDescription(sprintToEdit.longDescription ?? "");
+    setNewSprintStartDate(sprintToEdit.startDate);
+    setNewSprintEndDate(sprintToEdit.endDate);
+    setNewSprintStatus(sprintToEdit.status);
+    setNewSprintCapacityHours(String(sprintToEdit.capacityHours ?? 80));
+    setNewSprintFocus(sprintToEdit.focusArea ?? "Feature delivery");
+    setNewSprintDefinitionOfDone(sprintToEdit.definitionOfDone ?? defaultDefinitionOfDone);
+    setNewSprintRisks(sprintToEdit.riskNotes ?? "");
+    setNewSprintBacklogNotes(sprintToEdit.backlogNotes ?? "");
+  }
+
+  function populateProjectForm(projectToEdit: Project) {
+    setEditedProjectName(projectToEdit.name);
+    setEditedProjectClientName(projectToEdit.clientName);
+    setEditedProjectDescription(projectToEdit.description);
+    setEditedProjectLongDescription(projectToEdit.longDescription ?? "");
+    setEditedProjectBudgetHours(String(projectToEdit.budgetHours));
+    setEditedProjectUsedHours(String(projectToEdit.usedHours));
+    setEditedProjectDeadline(projectToEdit.deadline);
+    setEditedProjectStatus(projectToEdit.status);
+    setEditedProjectRiskNotes(projectToEdit.riskNotes);
+  }
+
+  function loadSprintForEdit(sprintId: string) {
+    const sprintToEdit = sprintRecords.find((sprintItem) => sprintItem.id === Number(sprintId));
+
+    if (!sprintToEdit) {
+      return;
+    }
+
+    setSprintFormMode("edit");
+    setEditedSprintId(sprintId);
+    populateSprintForm(sprintToEdit);
+    setSprintCreatorMessage("");
+  }
+
+  function loadProjectForEdit(projectId: string) {
+    const projectToEdit = projectRecords.find(
+      (projectItem) => projectItem.id === Number(projectId)
+    );
+
+    if (!projectToEdit) {
+      return;
+    }
+
+    setProjectFormMode("edit");
+    setEditedProjectId(projectId);
+    populateProjectForm(projectToEdit);
+    setProjectEditorMessage("");
+  }
+
+  function resetSprintForm() {
+    setSprintFormMode("create");
+    setNewSprintProjectId(String(selectedProject.id));
+    setNewSprintName("");
+    setNewSprintGoal("");
+    setNewSprintDescription("");
+    setNewSprintStartDate("");
+    setNewSprintEndDate("");
+    setNewSprintStatus("Planned");
+    setNewSprintCapacityHours("80");
+    setNewSprintFocus("Feature delivery");
+    setNewSprintDefinitionOfDone(defaultDefinitionOfDone);
+    setNewSprintRisks("");
+    setNewSprintBacklogNotes("");
+    setSprintCreatorMessage("");
+  }
+
+  function resetProjectForm() {
+    setProjectFormMode("create");
+    setEditedProjectName("");
+    setEditedProjectClientName("");
+    setEditedProjectDescription("");
+    setEditedProjectLongDescription("");
+    setEditedProjectBudgetHours("120");
+    setEditedProjectUsedHours("0");
+    setEditedProjectDeadline("");
+    setEditedProjectStatus("On Track");
+    setEditedProjectRiskNotes("");
+    setProjectEditorMessage("");
+  }
+
+  function handleSaveSprint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSprintCreatorMessage("");
 
     if (!isAdmin) {
-      setSprintCreatorMessage("Only admin users can create sprints.");
+      setSprintCreatorMessage("Only admin users can save sprints.");
       return;
     }
 
@@ -324,8 +450,11 @@ function App() {
       return;
     }
 
-    const newSprint: Sprint = {
-      id: Math.max(0, ...sprintRecords.map((sprintItem) => sprintItem.id)) + 1,
+    const savedSprint: Sprint = {
+      id:
+        sprintFormMode === "edit"
+          ? Number(editedSprintId)
+          : Math.max(0, ...sprintRecords.map((sprintItem) => sprintItem.id)) + 1,
       projectId,
       name: newSprintName.trim(),
       goal: newSprintGoal.trim(),
@@ -340,21 +469,188 @@ function App() {
       backlogNotes: newSprintBacklogNotes.trim()
     };
 
-    setSprintRecords((currentSprints) => [newSprint, ...currentSprints]);
+    setSprintRecords((currentSprints) =>
+      sprintFormMode === "edit"
+        ? currentSprints.map((sprintItem) =>
+            sprintItem.id === savedSprint.id ? savedSprint : sprintItem
+          )
+        : [savedSprint, ...currentSprints]
+    );
     setSelectedProjectId(projectId);
-    setOpenedSprintId(newSprint.id);
-    setNewSprintName("");
-    setNewSprintGoal("");
-    setNewSprintDescription("");
-    setNewSprintStartDate("");
-    setNewSprintEndDate("");
-    setNewSprintStatus("Planned");
-    setNewSprintCapacityHours("80");
-    setNewSprintFocus("Feature delivery");
-    setNewSprintDefinitionOfDone("Code reviewed, tested, documented, and ready for demo.");
-    setNewSprintRisks("");
-    setNewSprintBacklogNotes("");
-    setSprintCreatorMessage("Sprint created in the demo workspace.");
+    setOpenedSprintId(savedSprint.id);
+    setEditedSprintId(String(savedSprint.id));
+    setSprintFormMode("edit");
+    setSprintCreatorMessage(
+      sprintFormMode === "edit"
+        ? "Sprint updated in the demo workspace."
+        : "Sprint created in the demo workspace."
+    );
+  }
+
+  function handleDeleteOpenedSprint(sprintToDelete: Sprint) {
+    const confirmed = window.confirm(
+      `Delete "${sprintToDelete.name}"? This removes the sprint from the demo workspace.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const remainingSprints = sprintRecords.filter(
+      (sprintItem) => sprintItem.id !== sprintToDelete.id
+    );
+    const nextEditableSprint = remainingSprints[0];
+
+    setSprintRecords(remainingSprints);
+    setOpenedSprintId(null);
+
+    if (selectedSprintId === sprintToDelete.id) {
+      setSelectedSprintId(null);
+    }
+
+    if (editedSprintId === String(sprintToDelete.id)) {
+      setSprintFormMode(nextEditableSprint ? "edit" : "create");
+      setEditedSprintId(
+        nextEditableSprint ? String(nextEditableSprint.id) : String(defaultSprint.id)
+      );
+      setSprintCreatorMessage("Sprint deleted from the demo workspace.");
+    }
+  }
+
+  function handleDeleteOpenedProject(projectToDelete: Project) {
+    if (projectRecords.length <= 1) {
+      window.alert("You cannot delete the last project in the demo workspace.");
+      return;
+    }
+
+    const linkedSprints = sprintRecords.filter(
+      (sprintItem) => sprintItem.projectId === projectToDelete.id
+    );
+    const confirmed = window.confirm(
+      `Delete "${projectToDelete.name}" and ${linkedSprints.length} linked sprint(s)?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const remainingProjects = projectRecords.filter(
+      (projectItem) => projectItem.id !== projectToDelete.id
+    );
+    const remainingSprints = sprintRecords.filter(
+      (sprintItem) => sprintItem.projectId !== projectToDelete.id
+    );
+    const nextProject = remainingProjects[0];
+    const nextSprint = remainingSprints[0];
+
+    setProjectRecords(remainingProjects);
+    setSprintRecords(remainingSprints);
+    setOpenedProjectId(null);
+
+    if (nextProject && selectedProjectId === projectToDelete.id) {
+      setSelectedProjectId(nextProject.id);
+    }
+
+    if (openedSprint?.projectId === projectToDelete.id) {
+      setOpenedSprintId(null);
+    }
+
+    if (selectedSprint?.projectId === projectToDelete.id) {
+      setSelectedSprintId(null);
+    }
+
+    if (editedProjectId === String(projectToDelete.id)) {
+      setProjectFormMode(nextProject ? "edit" : "create");
+      setEditedProjectId(nextProject ? String(nextProject.id) : String(defaultProject.id));
+      if (nextProject) {
+        populateProjectForm(nextProject);
+      }
+      setProjectEditorMessage("Project deleted from the demo workspace.");
+    }
+
+    if (newSprintProjectId === String(projectToDelete.id) && nextProject) {
+      setNewSprintProjectId(String(nextProject.id));
+    }
+
+    if (
+      editedSprintId &&
+      linkedSprints.some((sprintItem) => String(sprintItem.id) === editedSprintId)
+    ) {
+      setSprintFormMode(nextSprint ? "edit" : "create");
+      setEditedSprintId(nextSprint ? String(nextSprint.id) : String(defaultSprint.id));
+      if (nextSprint) {
+        populateSprintForm(nextSprint);
+      }
+      setSprintCreatorMessage("Linked sprint(s) deleted with the project.");
+    }
+  }
+
+  function handleSaveProject(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setProjectEditorMessage("");
+
+    if (!isAdmin) {
+      setProjectEditorMessage("Only admin users can edit projects.");
+      return;
+    }
+
+    const budgetHours = Number(editedProjectBudgetHours);
+    const usedHours = Number(editedProjectUsedHours);
+    const projectId = Number(editedProjectId);
+
+    if (
+      !editedProjectName.trim() ||
+      !editedProjectClientName.trim() ||
+      !editedProjectDescription.trim() ||
+      !editedProjectDeadline
+    ) {
+      setProjectEditorMessage("Name, client, short description, and deadline are required.");
+      return;
+    }
+
+    if (!Number.isFinite(budgetHours) || budgetHours <= 0) {
+      setProjectEditorMessage("Budget hours must be a positive number.");
+      return;
+    }
+
+    if (!Number.isFinite(usedHours) || usedHours < 0) {
+      setProjectEditorMessage("Used hours cannot be negative.");
+      return;
+    }
+
+    const savedProject: Project = {
+      id:
+        projectFormMode === "edit"
+          ? projectId
+          : Math.max(0, ...projectRecords.map((projectItem) => projectItem.id)) + 1,
+      name: editedProjectName.trim(),
+      clientName: editedProjectClientName.trim(),
+      description: editedProjectDescription.trim(),
+      longDescription: editedProjectLongDescription.trim() || editedProjectDescription.trim(),
+      budgetHours,
+      usedHours,
+      deadline: editedProjectDeadline,
+      status: editedProjectStatus,
+      riskNotes: editedProjectRiskNotes.trim() || "No risk notes recorded."
+    };
+
+    setProjectRecords((currentProjects) =>
+      projectFormMode === "edit"
+        ? currentProjects.map((projectItem) =>
+            projectItem.id === savedProject.id ? savedProject : projectItem
+          )
+        : [savedProject, ...currentProjects]
+    );
+
+    setSelectedProjectId(savedProject.id);
+    setOpenedProjectId(savedProject.id);
+    setEditedProjectId(String(savedProject.id));
+    setProjectFormMode("edit");
+    setProjectEditorMessage(
+      projectFormMode === "edit"
+        ? "Project updated in the demo workspace."
+        : "Project created in the demo workspace."
+    );
   }
 
   function handleNavigation(viewId: ViewId) {
@@ -568,11 +864,11 @@ function App() {
             <section className="sprint-summary">
               <div>
                 <p className="eyebrow">Current sprint</p>
-                <h2>{sprint.name}</h2>
-                <p>{sprint.goal}</p>
+                <h2>{currentSprint.name}</h2>
+                <p>{currentSprint.goal}</p>
               </div>
               <span>
-                {sprint.startDate} to {sprint.endDate}
+                {currentSprint.startDate} to {currentSprint.endDate}
               </span>
             </section>
           </>
@@ -649,7 +945,7 @@ function App() {
                   onChange={(event) => setEmployeeProjectFilter(event.target.value)}
                 >
                   <option value="all">All projects</option>
-                  {projects.map((projectItem) => (
+                  {projectRecords.map((projectItem) => (
                     <option key={projectItem.id} value={projectItem.id}>
                       {projectItem.name}
                     </option>
@@ -814,13 +1110,25 @@ function App() {
               </>
             ) : (
               <section className="project-detail-page" aria-label="Opened project detail">
-                <button
-                  className="back-button"
-                  type="button"
-                  onClick={() => setOpenedProjectId(null)}
-                >
-                  &lt;- Back to projects
-                </button>
+                <div className="detail-action-row">
+                  <button
+                    className="back-button"
+                    type="button"
+                    onClick={() => setOpenedProjectId(null)}
+                  >
+                    &lt;- Back to projects
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      className="delete-detail-button"
+                      type="button"
+                      onClick={() => handleDeleteOpenedProject(openedProject)}
+                    >
+                      Delete project
+                    </button>
+                  )}
+                </div>
 
                 <div className="project-detail-panel__header">
                   <div>
@@ -923,7 +1231,7 @@ function App() {
                   </div>
 
                   {filteredSprints.map((sprintItem) => {
-                    const sprintProject = projects.find(
+                    const sprintProject = projectRecords.find(
                       (projectItem) => projectItem.id === sprintItem.projectId
                     );
                     const isAccessible = canOpenProject(sprintItem.projectId);
@@ -971,13 +1279,25 @@ function App() {
               </>
             ) : (
               <section className="project-detail-page" aria-label="Opened sprint detail">
-                <button
-                  className="back-button"
-                  type="button"
-                  onClick={() => setOpenedSprintId(null)}
-                >
-                  &lt;- Back to sprints
-                </button>
+                <div className="detail-action-row">
+                  <button
+                    className="back-button"
+                    type="button"
+                    onClick={() => setOpenedSprintId(null)}
+                  >
+                    &lt;- Back to sprints
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      className="delete-detail-button"
+                      type="button"
+                      onClick={() => handleDeleteOpenedSprint(openedSprint)}
+                    >
+                      Delete sprint
+                    </button>
+                  )}
+                </div>
 
                 <div className="project-detail-panel__header">
                   <div>
@@ -1086,13 +1406,29 @@ function App() {
             <section className="admin-edit-shell" aria-label="Admin edit tools">
               <aside className="admin-edit-sidebar">
                 <p className="eyebrow">Edit categories</p>
-                <button className="admin-edit-tab admin-edit-tab--active" type="button">
-                  <strong>Sprint Creator</strong>
+                <button
+                  className={
+                    adminEditSection === "sprints"
+                      ? "admin-edit-tab admin-edit-tab--active"
+                      : "admin-edit-tab"
+                  }
+                  type="button"
+                  onClick={() => setAdminEditSection("sprints")}
+                >
+                  <strong>Sprint Editor</strong>
                   <span>Create sprint plans and planning metadata</span>
                 </button>
-                <button className="admin-edit-tab" type="button" disabled>
-                  <strong>Project Edits</strong>
-                  <span>Coming next</span>
+                <button
+                  className={
+                    adminEditSection === "projects"
+                      ? "admin-edit-tab admin-edit-tab--active"
+                      : "admin-edit-tab"
+                  }
+                  type="button"
+                  onClick={() => setAdminEditSection("projects")}
+                >
+                  <strong>Project Editor</strong>
+                  <span>Edit project identity, budget, status, and risk</span>
                 </button>
                 <button className="admin-edit-tab" type="button" disabled>
                   <strong>Team Edits</strong>
@@ -1100,154 +1436,351 @@ function App() {
                 </button>
               </aside>
 
-              <section className="sprint-creator" aria-label="Sprint creator">
-                <div className="sprint-creator__intro">
-                  <div>
-                    <p className="eyebrow">Sprint creator</p>
-                    <h2>Create a sprint plan</h2>
-                    <p>
-                      Use this to define the sprint timebox, goal, capacity, backlog notes, and
-                      quality expectations before work moves into execution.
-                    </p>
+              {adminEditSection === "sprints" && (
+                <section className="sprint-creator" aria-label="Sprint creator">
+                  <div className="sprint-creator__intro">
+                    <div>
+                      <p className="eyebrow">Sprint manager</p>
+                      <h2>
+                        {sprintFormMode === "create"
+                          ? "Create a sprint plan"
+                          : "Edit sprint data"}
+                      </h2>
+                      <p>
+                        Create a new sprint or update an existing one by changing its timebox, goal,
+                        capacity, backlog notes, and quality expectations.
+                      </p>
+                    </div>
+                    <span>Admin editable</span>
                   </div>
-                  <span>Admin editable</span>
-                </div>
 
-                <form className="sprint-creator-form" onSubmit={handleCreateSprint}>
-                  <label>
-                    Project
-                    <select
-                      value={newSprintProjectId}
-                      onChange={(event) => setNewSprintProjectId(event.target.value)}
+                  <div className="form-mode-toggle" aria-label="Sprint form mode">
+                    <button
+                      className={sprintFormMode === "create" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={resetSprintForm}
                     >
-                      {projects.map((projectItem) => (
-                        <option key={projectItem.id} value={projectItem.id}>
-                          {projectItem.name} - {projectItem.clientName}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label>
-                    Sprint name
-                    <input
-                      value={newSprintName}
-                      onChange={(event) => setNewSprintName(event.target.value)}
-                      placeholder="Example: Sprint 5 - Reporting polish"
-                    />
-                  </label>
-
-                  <label>
-                    Status
-                    <select
-                      value={newSprintStatus}
-                      onChange={(event) => setNewSprintStatus(event.target.value as Sprint["status"])}
+                      Create new
+                    </button>
+                    <button
+                      className={sprintFormMode === "edit" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={() => loadSprintForEdit(editedSprintId)}
                     >
-                      <option value="Planned">Planned</option>
-                      <option value="Active">Active</option>
-                      <option value="Blocked">Blocked</option>
-                      <option value="Completed">Completed</option>
-                    </select>
-                  </label>
-
-                  <label>
-                    Start date
-                    <input
-                      type="date"
-                      value={newSprintStartDate}
-                      onChange={(event) => setNewSprintStartDate(event.target.value)}
-                    />
-                  </label>
-
-                  <label>
-                    End date
-                    <input
-                      type="date"
-                      value={newSprintEndDate}
-                      onChange={(event) => setNewSprintEndDate(event.target.value)}
-                    />
-                  </label>
-
-                  <label>
-                    Capacity hours
-                    <input
-                      min="1"
-                      type="number"
-                      value={newSprintCapacityHours}
-                      onChange={(event) => setNewSprintCapacityHours(event.target.value)}
-                    />
-                  </label>
-
-                  <label>
-                    Focus area
-                    <select
-                      value={newSprintFocus}
-                      onChange={(event) => setNewSprintFocus(event.target.value)}
-                    >
-                      <option>Feature delivery</option>
-                      <option>Bug fixing</option>
-                      <option>Technical debt</option>
-                      <option>Discovery</option>
-                      <option>Release hardening</option>
-                      <option>Client feedback</option>
-                    </select>
-                  </label>
-
-                  <label className="sprint-creator-form__wide">
-                    Sprint goal
-                    <textarea
-                      value={newSprintGoal}
-                      onChange={(event) => setNewSprintGoal(event.target.value)}
-                      placeholder="What valuable outcome should the team achieve by the end?"
-                      rows={3}
-                    />
-                  </label>
-
-                  <label className="sprint-creator-form__wide">
-                    Extended description
-                    <textarea
-                      value={newSprintDescription}
-                      onChange={(event) => setNewSprintDescription(event.target.value)}
-                      placeholder="Context, expected outcome, stakeholders, or delivery notes."
-                      rows={4}
-                    />
-                  </label>
-
-                  <label className="sprint-creator-form__wide">
-                    Backlog notes
-                    <textarea
-                      value={newSprintBacklogNotes}
-                      onChange={(event) => setNewSprintBacklogNotes(event.target.value)}
-                      placeholder="Which work should be pulled into this sprint?"
-                      rows={3}
-                    />
-                  </label>
-
-                  <label className="sprint-creator-form__wide">
-                    Definition of done
-                    <textarea
-                      value={newSprintDefinitionOfDone}
-                      onChange={(event) => setNewSprintDefinitionOfDone(event.target.value)}
-                      rows={3}
-                    />
-                  </label>
-
-                  <label className="sprint-creator-form__wide">
-                    Risks or dependencies
-                    <textarea
-                      value={newSprintRisks}
-                      onChange={(event) => setNewSprintRisks(event.target.value)}
-                      placeholder="External blockers, unclear requirements, unavailable people..."
-                      rows={3}
-                    />
-                  </label>
-
-                  <div className="sprint-creator-actions">
-                    <p>{sprintCreatorMessage}</p>
-                    <button type="submit">Create sprint</button>
+                      Edit existing
+                    </button>
                   </div>
-                </form>
-              </section>
+
+                  <form className="sprint-creator-form" onSubmit={handleSaveSprint}>
+                    {sprintFormMode === "edit" && (
+                      <label>
+                        Sprint to edit
+                        <select
+                          value={editedSprintId}
+                          onChange={(event) => loadSprintForEdit(event.target.value)}
+                        >
+                          {sprintRecords.map((sprintItem) => {
+                            const sprintProject = projectRecords.find(
+                              (projectItem) => projectItem.id === sprintItem.projectId
+                            );
+
+                            return (
+                              <option key={sprintItem.id} value={sprintItem.id}>
+                                {sprintItem.name} - {sprintProject?.name ?? "Unknown project"}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </label>
+                    )}
+
+                    <label>
+                      Project
+                      <select
+                        value={newSprintProjectId}
+                        onChange={(event) => setNewSprintProjectId(event.target.value)}
+                      >
+                        {projectRecords.map((projectItem) => (
+                          <option key={projectItem.id} value={projectItem.id}>
+                            {projectItem.name} - {projectItem.clientName}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <label>
+                      Sprint name
+                      <input
+                        value={newSprintName}
+                        onChange={(event) => setNewSprintName(event.target.value)}
+                        placeholder="Example: Sprint 5 - Reporting polish"
+                      />
+                    </label>
+
+                    <label>
+                      Status
+                      <select
+                        value={newSprintStatus}
+                        onChange={(event) =>
+                          setNewSprintStatus(event.target.value as Sprint["status"])
+                        }
+                      >
+                        <option value="Planned">Planned</option>
+                        <option value="Active">Active</option>
+                        <option value="Blocked">Blocked</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Start date
+                      <input
+                        type="date"
+                        value={newSprintStartDate}
+                        onChange={(event) => setNewSprintStartDate(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      End date
+                      <input
+                        type="date"
+                        value={newSprintEndDate}
+                        onChange={(event) => setNewSprintEndDate(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Capacity hours
+                      <input
+                        min="1"
+                        type="number"
+                        value={newSprintCapacityHours}
+                        onChange={(event) => setNewSprintCapacityHours(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Focus area
+                      <select
+                        value={newSprintFocus}
+                        onChange={(event) => setNewSprintFocus(event.target.value)}
+                      >
+                        <option>Feature delivery</option>
+                        <option>Bug fixing</option>
+                        <option>Technical debt</option>
+                        <option>Discovery</option>
+                        <option>Release hardening</option>
+                        <option>Client feedback</option>
+                      </select>
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Sprint goal
+                      <textarea
+                        value={newSprintGoal}
+                        onChange={(event) => setNewSprintGoal(event.target.value)}
+                        placeholder="What valuable outcome should the team achieve by the end?"
+                        rows={3}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Extended description
+                      <textarea
+                        value={newSprintDescription}
+                        onChange={(event) => setNewSprintDescription(event.target.value)}
+                        placeholder="Context, expected outcome, stakeholders, or delivery notes."
+                        rows={4}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Backlog notes
+                      <textarea
+                        value={newSprintBacklogNotes}
+                        onChange={(event) => setNewSprintBacklogNotes(event.target.value)}
+                        placeholder="Which work should be pulled into this sprint?"
+                        rows={3}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Definition of done
+                      <textarea
+                        value={newSprintDefinitionOfDone}
+                        onChange={(event) => setNewSprintDefinitionOfDone(event.target.value)}
+                        rows={3}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Risks or dependencies
+                      <textarea
+                        value={newSprintRisks}
+                        onChange={(event) => setNewSprintRisks(event.target.value)}
+                        placeholder="External blockers, unclear requirements, unavailable people..."
+                        rows={3}
+                      />
+                    </label>
+
+                    <div className="sprint-creator-actions">
+                      <p>{sprintCreatorMessage}</p>
+                      <button type="submit">
+                        {sprintFormMode === "create" ? "Create sprint" : "Save sprint changes"}
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
+
+              {adminEditSection === "projects" && (
+                <section className="sprint-creator" aria-label="Project editor">
+                  <div className="sprint-creator__intro">
+                    <div>
+                      <p className="eyebrow">Project manager</p>
+                      <h2>
+                        {projectFormMode === "create"
+                          ? "Create project data"
+                          : "Edit project data"}
+                      </h2>
+                      <p>
+                        Create a project or update identity, client, delivery status, budget hours,
+                        deadline, descriptions, and risk notes used across the portal.
+                      </p>
+                    </div>
+                    <span>Admin editable</span>
+                  </div>
+
+                  <div className="form-mode-toggle" aria-label="Project form mode">
+                    <button
+                      className={projectFormMode === "create" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={resetProjectForm}
+                    >
+                      Create new
+                    </button>
+                    <button
+                      className={projectFormMode === "edit" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={() => loadProjectForEdit(editedProjectId)}
+                    >
+                      Edit existing
+                    </button>
+                  </div>
+
+                  <form className="sprint-creator-form" onSubmit={handleSaveProject}>
+                    {projectFormMode === "edit" && (
+                      <label>
+                        Project to edit
+                        <select
+                          value={editedProjectId}
+                          onChange={(event) => loadProjectForEdit(event.target.value)}
+                        >
+                          {projectRecords.map((projectItem) => (
+                            <option key={projectItem.id} value={projectItem.id}>
+                              {projectItem.name} - {projectItem.clientName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    <label>
+                      Project name
+                      <input
+                        value={editedProjectName}
+                        onChange={(event) => setEditedProjectName(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Client name
+                      <input
+                        value={editedProjectClientName}
+                        onChange={(event) => setEditedProjectClientName(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Status
+                      <select
+                        value={editedProjectStatus}
+                        onChange={(event) =>
+                          setEditedProjectStatus(event.target.value as Project["status"])
+                        }
+                      >
+                        <option value="On Track">On Track</option>
+                        <option value="At Risk">At Risk</option>
+                        <option value="Blocked">Blocked</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Budget hours
+                      <input
+                        min="1"
+                        type="number"
+                        value={editedProjectBudgetHours}
+                        onChange={(event) => setEditedProjectBudgetHours(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Used hours
+                      <input
+                        min="0"
+                        type="number"
+                        value={editedProjectUsedHours}
+                        onChange={(event) => setEditedProjectUsedHours(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Deadline
+                      <input
+                        type="date"
+                        value={editedProjectDeadline}
+                        onChange={(event) => setEditedProjectDeadline(event.target.value)}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Short description
+                      <textarea
+                        value={editedProjectDescription}
+                        onChange={(event) => setEditedProjectDescription(event.target.value)}
+                        rows={3}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Extended description
+                      <textarea
+                        value={editedProjectLongDescription}
+                        onChange={(event) => setEditedProjectLongDescription(event.target.value)}
+                        rows={4}
+                      />
+                    </label>
+
+                    <label className="sprint-creator-form__wide">
+                      Risk notes
+                      <textarea
+                        value={editedProjectRiskNotes}
+                        onChange={(event) => setEditedProjectRiskNotes(event.target.value)}
+                        rows={3}
+                      />
+                    </label>
+
+                    <div className="sprint-creator-actions">
+                      <p>{projectEditorMessage}</p>
+                      <button type="submit">
+                        {projectFormMode === "create" ? "Create project" : "Save project changes"}
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
             </section>
           </>
         )}
@@ -1456,7 +1989,7 @@ function App() {
 }
 
 type PageHeaderProps = {
-  currentProject: typeof project;
+  currentProject: Project;
   eyebrow: string;
   title: string;
   description: string;

@@ -669,6 +669,31 @@ button {
   gap: 12px;
 }
 
+.form-mode-toggle {
+  display: inline-flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 4px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #f6f8fc;
+}
+
+.form-mode-toggle button {
+  border: 0;
+  border-radius: 6px;
+  padding: 8px 12px;
+  background: transparent;
+  color: #4b5a6d;
+  font-weight: 800;
+}
+
+.form-mode-toggle__active {
+  background: #ffffff !important;
+  color: #3267d6 !important;
+  box-shadow: 0 6px 18px rgb(24 33 47 / 0.08);
+}
+
 .sprint-creator-form label {
   display: grid;
   gap: 6px;
@@ -1117,6 +1142,28 @@ button {
   background: #f8fbff;
   color: #3267d6;
   font-weight: 800;
+}
+
+.detail-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.delete-detail-button {
+  width: fit-content;
+  padding: 10px 12px;
+  border: 1px solid #f2b8b5;
+  border-radius: 8px;
+  background: #fff5f5;
+  color: #b42318;
+  font-weight: 800;
+}
+
+.delete-detail-button:hover {
+  border-color: #d92d20;
+  background: #fee4e2;
 }
 
 .project-detail-panel__header {
