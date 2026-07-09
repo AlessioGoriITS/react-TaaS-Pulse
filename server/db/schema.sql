@@ -120,7 +120,7 @@ CREATE TABLE sprints (
   goal TEXT,
   start_date TEXT NOT NULL,
   end_date TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'completed')),
+  status TEXT NOT NULL DEFAULT 'planned' CHECK (status IN ('planned', 'active', 'completed', 'blocked')),
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE

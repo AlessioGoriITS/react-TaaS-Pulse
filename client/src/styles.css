@@ -631,7 +631,8 @@ button {
 
 .dashboard-health-list,
 .dashboard-list,
-.dashboard-workload {
+.dashboard-workload,
+.employee-project-list {
   display: grid;
   gap: 10px;
 }

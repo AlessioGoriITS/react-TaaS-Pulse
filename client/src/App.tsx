@@ -1,11 +1,22 @@
 import { FormEvent, useEffect, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
+import {
+  deleteEmployee,
+  deleteProject,
+  deleteSprint,
+  getWorkspace,
+  saveEmployee,
+  saveProject,
+  saveSprint,
+  saveTeam,
+  type WorkspaceData
+} from "./api/workspace";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
 import {
   projects as initialProjects,
   sprints as initialSprints,
-  tasks,
+  tasks as initialTasks,
   teamMembers as initialTeamMembers,
   teams as initialTeams
 } from "./data/demoData";
@@ -14,7 +25,7 @@ import {
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { AuthUser, Project, Sprint, Team, TeamMember, ViewId } from "./types";
+import type { AuthUser, Project, Sprint, Task, Team, TeamMember, ViewId } from "./types";
 
 const defaultProject = initialProjects[0];
 const defaultSprint = initialSprints[0];
@@ -40,6 +51,7 @@ function App() {
   const [dashboardProjectId, setDashboardProjectId] = useState(defaultProject.id);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [workspaceError, setWorkspaceError] = useState("");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState("admin@taaspulse.local");
   const [loginPassword, setLoginPassword] = useState("");
@@ -54,6 +66,7 @@ function App() {
     useState<TeamMember[]>(initialTeamMembers);
   const [teamRecords, setTeamRecords] = useState<Team[]>(initialTeams);
   const [projectRecords, setProjectRecords] = useState<Project[]>(initialProjects);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [projectSearch, setProjectSearch] = useState("");
   const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
   const [sprintSearch, setSprintSearch] = useState("");
@@ -440,6 +453,91 @@ function App() {
       meta: `${task.status} / ${task.estimateHours}h estimate`
     }))
   ].slice(0, 4);
+  const employeeProjects = loggedEmployee
+    ? projectRecords.filter((projectItem) => loggedEmployee.projectIds.includes(projectItem.id))
+    : [];
+  const employeeTasks = loggedEmployee
+    ? tasks.filter((task) => task.assigneeId === loggedEmployee.id)
+    : [];
+  const employeeOpenTasks = employeeTasks.filter((task) => task.status !== "Done");
+  const employeeDoneTasks = employeeTasks.filter((task) => task.status === "Done");
+  const employeeHighPriorityTasks = employeeOpenTasks.filter((task) => task.priority === "High");
+  const employeeCompletion =
+    employeeTasks.length > 0 ? Math.round((employeeDoneTasks.length / employeeTasks.length) * 100) : 0;
+  const employeePlannedHours = employeeOpenTasks.reduce(
+    (total, task) => total + task.estimateHours,
+    0
+  );
+  const employeeLoad =
+    loggedEmployee && loggedEmployee.weeklyCapacityHours > 0
+      ? Math.min(Math.round((employeePlannedHours / loggedEmployee.weeklyCapacityHours) * 100), 100)
+      : 0;
+  const employeeTeams = loggedEmployee
+    ? teamRecords.filter((team) => team.memberIds.includes(loggedEmployee.id))
+    : [];
+  const employeeSprints = sprintRecords.filter((sprintItem) =>
+    employeeProjects.some((projectItem) => projectItem.id === sprintItem.projectId)
+  );
+  const employeeActiveSprints = employeeSprints.filter(
+    (sprintItem) => sprintItem.status === "Active" || sprintItem.status === "Blocked"
+  );
+  const employeeNextProject = [...employeeProjects].sort((firstProject, secondProject) =>
+    firstProject.deadline.localeCompare(secondProject.deadline)
+  )[0];
+  const employeeDashboardStatus =
+    employeeHighPriorityTasks.length > 0
+      ? "Priority work needs you"
+      : employeeOpenTasks.length > 0
+        ? "Your work is in progress"
+        : "All assigned work is clear";
+  const employeeFocusItems = [
+    {
+      title: "My projects",
+      value: String(employeeProjects.length),
+      helper: employeeNextProject ? `Next deadline: ${employeeNextProject.deadline}` : "No assigned project"
+    },
+    {
+      title: "My open tasks",
+      value: String(employeeOpenTasks.length),
+      helper: `${employeeCompletion}% of your tasks complete`
+    },
+    {
+      title: "Weekly load",
+      value: `${employeeLoad}%`,
+      helper: loggedEmployee
+        ? `${employeePlannedHours}h planned / ${loggedEmployee.weeklyCapacityHours}h capacity`
+        : "No employee profile linked"
+    }
+  ];
+  const employeeImportantTasks = [
+    ...employeeHighPriorityTasks,
+    ...employeeOpenTasks.filter((task) => task.priority !== "High")
+  ].slice(0, 5);
+
+  function applyWorkspace(workspace: WorkspaceData) {
+    setProjectRecords(workspace.projects.length > 0 ? workspace.projects : initialProjects);
+    setTeamMemberRecords(
+      workspace.teamMembers.length > 0 ? workspace.teamMembers : initialTeamMembers
+    );
+    setTeamRecords(workspace.teams.length > 0 ? workspace.teams : initialTeams);
+    setSprintRecords(workspace.sprints.length > 0 ? workspace.sprints : initialSprints);
+    setTasks(workspace.tasks);
+
+    const firstProject = workspace.projects[0];
+    if (firstProject) {
+      setSelectedProjectId((currentId) =>
+        workspace.projects.some((projectItem) => projectItem.id === currentId)
+          ? currentId
+          : firstProject.id
+      );
+      setDashboardProjectId((currentId) =>
+        workspace.projects.some((projectItem) => projectItem.id === currentId)
+          ? currentId
+          : firstProject.id
+      );
+    }
+  }
+
   useEffect(() => {
     if (authUser?.role === "user" && (activeView === "dependents" || activeView === "admin")) {
       setActiveView("dashboard");
@@ -469,6 +567,23 @@ function App() {
         setAuthStatus("unauthenticated");
       });
   }, []);
+
+  useEffect(() => {
+    if (!authUser) {
+      return;
+    }
+
+    getWorkspace()
+      .then((workspace) => {
+        applyWorkspace(workspace);
+        setWorkspaceError("");
+      })
+      .catch((error) => {
+        setWorkspaceError(
+          error instanceof Error ? error.message : "Could not load database workspace."
+        );
+      });
+  }, [authUser]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -659,7 +774,7 @@ function App() {
     setTeamEditorMessage("");
   }
 
-  function handleSaveSprint(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveSprint(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSprintCreatorMessage("");
 
@@ -705,25 +820,27 @@ function App() {
       backlogNotes: newSprintBacklogNotes.trim()
     };
 
-    setSprintRecords((currentSprints) =>
-      sprintFormMode === "edit"
-        ? currentSprints.map((sprintItem) =>
-            sprintItem.id === savedSprint.id ? savedSprint : sprintItem
-          )
-        : [savedSprint, ...currentSprints]
-    );
+    const mode = sprintFormMode;
+    try {
+      const response = await saveSprint(savedSprint, mode);
+      applyWorkspace(response.workspace);
+      const savedSprintId = response.item?.id ?? savedSprint.id;
+      setOpenedSprintId(savedSprintId);
+      setEditedSprintId(String(savedSprintId));
+    } catch (error) {
+      setSprintCreatorMessage(
+        error instanceof Error ? error.message : "Could not save sprint to the database."
+      );
+      return;
+    }
     setSelectedProjectId(projectId);
-    setOpenedSprintId(savedSprint.id);
-    setEditedSprintId(String(savedSprint.id));
     setSprintFormMode("edit");
     setSprintCreatorMessage(
-      sprintFormMode === "edit"
-        ? "Sprint updated in the demo workspace."
-        : "Sprint created in the demo workspace."
+      mode === "edit" ? "Sprint updated in the database." : "Sprint created in the database."
     );
   }
 
-  function handleDeleteOpenedSprint(sprintToDelete: Sprint) {
+  async function handleDeleteOpenedSprint(sprintToDelete: Sprint) {
     const confirmed = window.confirm(
       `Delete "${sprintToDelete.name}"? This removes the sprint from the demo workspace.`
     );
@@ -737,7 +854,15 @@ function App() {
     );
     const nextEditableSprint = remainingSprints[0];
 
-    setSprintRecords(remainingSprints);
+    try {
+      const response = await deleteSprint(sprintToDelete.id);
+      applyWorkspace(response.workspace);
+    } catch (error) {
+      setSprintCreatorMessage(
+        error instanceof Error ? error.message : "Could not delete sprint from the database."
+      );
+      return;
+    }
     setOpenedSprintId(null);
 
     if (selectedSprintId === sprintToDelete.id) {
@@ -749,7 +874,7 @@ function App() {
       setEditedSprintId(
         nextEditableSprint ? String(nextEditableSprint.id) : String(defaultSprint.id)
       );
-      setSprintCreatorMessage("Sprint deleted from the demo workspace.");
+      setSprintCreatorMessage("Sprint deleted from the database.");
     }
   }
 
@@ -763,7 +888,7 @@ function App() {
     setDashboardProjectId(projectRecords[nextIndex].id);
   }
 
-  function handleDeleteOpenedProject(projectToDelete: Project) {
+  async function handleDeleteOpenedProject(projectToDelete: Project) {
     if (projectRecords.length <= 1) {
       window.alert("You cannot delete the last project in the demo workspace.");
       return;
@@ -789,20 +914,15 @@ function App() {
     const nextProject = remainingProjects[0];
     const nextSprint = remainingSprints[0];
 
-    setProjectRecords(remainingProjects);
-    setSprintRecords(remainingSprints);
-    setTeamMemberRecords((currentMembers) =>
-      currentMembers.map((member) => ({
-        ...member,
-        projectIds: member.projectIds.filter((projectId) => projectId !== projectToDelete.id)
-      }))
-    );
-    setTeamRecords((currentTeams) =>
-      currentTeams.map((team) => ({
-        ...team,
-        projectIds: team.projectIds.filter((projectId) => projectId !== projectToDelete.id)
-      }))
-    );
+    try {
+      const response = await deleteProject(projectToDelete.id);
+      applyWorkspace(response.workspace);
+    } catch (error) {
+      setProjectEditorMessage(
+        error instanceof Error ? error.message : "Could not delete project from the database."
+      );
+      return;
+    }
     setOpenedProjectId(null);
 
     if (nextProject && selectedProjectId === projectToDelete.id) {
@@ -827,7 +947,7 @@ function App() {
       if (nextProject) {
         populateProjectForm(nextProject);
       }
-      setProjectEditorMessage("Project deleted from the demo workspace.");
+      setProjectEditorMessage("Project deleted from the database.");
     }
 
     if (newSprintProjectId === String(projectToDelete.id) && nextProject) {
@@ -847,7 +967,7 @@ function App() {
     }
   }
 
-  function handleSaveProject(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveProject(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setProjectEditorMessage("");
 
@@ -896,26 +1016,27 @@ function App() {
       riskNotes: editedProjectRiskNotes.trim() || "No risk notes recorded."
     };
 
-    setProjectRecords((currentProjects) =>
-      projectFormMode === "edit"
-        ? currentProjects.map((projectItem) =>
-            projectItem.id === savedProject.id ? savedProject : projectItem
-          )
-        : [savedProject, ...currentProjects]
-    );
-
-    setSelectedProjectId(savedProject.id);
-    setOpenedProjectId(savedProject.id);
-    setEditedProjectId(String(savedProject.id));
+    const mode = projectFormMode;
+    try {
+      const response = await saveProject(savedProject, mode);
+      applyWorkspace(response.workspace);
+      const savedProjectId = response.item?.id ?? savedProject.id;
+      setSelectedProjectId(savedProjectId);
+      setOpenedProjectId(savedProjectId);
+      setEditedProjectId(String(savedProjectId));
+    } catch (error) {
+      setProjectEditorMessage(
+        error instanceof Error ? error.message : "Could not save project to the database."
+      );
+      return;
+    }
     setProjectFormMode("edit");
     setProjectEditorMessage(
-      projectFormMode === "edit"
-        ? "Project updated in the demo workspace."
-        : "Project created in the demo workspace."
+      mode === "edit" ? "Project updated in the database." : "Project created in the database."
     );
   }
 
-  function handleSaveDependent(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveDependent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setDependentEditorMessage("");
 
@@ -964,24 +1085,24 @@ function App() {
       bio: dependentBio.trim() || "No profile notes added yet."
     };
 
-    setTeamMemberRecords((currentMembers) =>
-      dependentFormMode === "edit"
-        ? currentMembers.map((member) =>
-            member.id === savedDependent.id ? savedDependent : member
-          )
-        : [savedDependent, ...currentMembers]
-    );
-
-    setEditedDependentId(String(savedDependent.id));
+    const mode = dependentFormMode;
+    try {
+      const response = await saveEmployee(savedDependent, mode);
+      applyWorkspace(response.workspace);
+      setEditedDependentId(String(response.item?.id ?? savedDependent.id));
+    } catch (error) {
+      setDependentEditorMessage(
+        error instanceof Error ? error.message : "Could not save employee to the database."
+      );
+      return;
+    }
     setDependentFormMode("edit");
     setDependentEditorMessage(
-      dependentFormMode === "edit"
-        ? "Employee updated in the demo workspace."
-        : "Employee created in the demo workspace."
+      mode === "edit" ? "Employee updated in the database." : "Employee created in the database."
     );
   }
 
-  function handleDeleteOpenedDependent(memberToDelete: TeamMember) {
+  async function handleDeleteOpenedDependent(memberToDelete: TeamMember) {
     if (teamMemberRecords.length <= 1) {
       window.alert("You cannot delete the last employee in the demo workspace.");
       return;
@@ -1004,23 +1125,15 @@ function App() {
     const remainingMembers = teamMemberRecords.filter((member) => member.id !== memberToDelete.id);
     const fallbackLeadId = remainingMembers[0]?.id ?? defaultTeamMember.id;
 
-    setTeamMemberRecords(remainingMembers);
-    setTeamRecords((currentTeams) =>
-      currentTeams.map((team) => {
-        const remainingMemberIds = team.memberIds.filter(
-          (memberId) => memberId !== memberToDelete.id
-        );
-
-        return {
-          ...team,
-          leadId:
-            team.leadId === memberToDelete.id
-              ? remainingMemberIds[0] ?? fallbackLeadId
-              : team.leadId,
-          memberIds: remainingMemberIds
-        };
-      })
-    );
+    try {
+      const response = await deleteEmployee(memberToDelete.id);
+      applyWorkspace(response.workspace);
+    } catch (error) {
+      setDependentEditorMessage(
+        error instanceof Error ? error.message : "Could not delete employee from the database."
+      );
+      return;
+    }
     setOpenedDependentId(null);
 
     if (editedDependentId === String(memberToDelete.id)) {
@@ -1032,7 +1145,7 @@ function App() {
       if (nextEditableMember) {
         populateDependentForm(nextEditableMember);
       }
-      setDependentEditorMessage("Employee deleted from the demo workspace.");
+      setDependentEditorMessage("Employee deleted from the database.");
     }
 
     if (teamLeadId === String(memberToDelete.id)) {
@@ -1046,7 +1159,7 @@ function App() {
     }
   }
 
-  function handleSaveTeam(event: FormEvent<HTMLFormElement>) {
+  async function handleSaveTeam(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setTeamEditorMessage("");
 
@@ -1081,20 +1194,22 @@ function App() {
       notes: teamNotes.trim()
     };
 
-    setTeamRecords((currentTeams) =>
-      teamFormMode === "edit"
-        ? currentTeams.map((team) => (team.id === savedTeam.id ? savedTeam : team))
-        : [savedTeam, ...currentTeams]
-    );
-
-    setEditedTeamId(String(savedTeam.id));
+    const mode = teamFormMode;
+    try {
+      const response = await saveTeam(savedTeam, mode);
+      applyWorkspace(response.workspace);
+      setEditedTeamId(String(response.item?.id ?? savedTeam.id));
+    } catch (error) {
+      setTeamEditorMessage(
+        error instanceof Error ? error.message : "Could not save team to the database."
+      );
+      return;
+    }
     setTeamFormMode("edit");
     setTeamMemberIds(memberIds.map(String));
     setTeamProjectIds(savedTeam.projectIds.map(String));
     setTeamEditorMessage(
-      teamFormMode === "edit"
-        ? "Team updated in the demo workspace."
-        : "Team created in the demo workspace."
+      mode === "edit" ? "Team updated in the database." : "Team created in the database."
     );
   }
 
@@ -1286,7 +1401,208 @@ function App() {
           </div>
         </header>
 
-        {activeView === "dashboard" && (
+        {workspaceError && <p className="form-error">{workspaceError}</p>}
+
+        {activeView === "dashboard" && !isAdmin && loggedEmployee && (
+          <>
+            <PageHeader
+              currentProject={selectedProject}
+              eyebrow="Dashboard"
+              title={`Welcome, ${loggedEmployee.name}`}
+              description="Your assigned projects, active work, sprint context, and team information in one place."
+            />
+
+            <section className="dashboard-overview" aria-label="Employee dashboard overview">
+              <div className="dashboard-hero-panel">
+                <div className="dashboard-hero-panel__top">
+                  <div className="dashboard-risk-copy">
+                    <p className="eyebrow">My workspace</p>
+                    <div className="dashboard-risk-heading">
+                      <span aria-hidden="true" />
+                      <h2>{employeeDashboardStatus}</h2>
+                    </div>
+                    <p>
+                      You are assigned to {employeeProjects.length} project
+                      {employeeProjects.length === 1 ? "" : "s"}, {employeeActiveSprints.length} active
+                      sprint{employeeActiveSprints.length === 1 ? "" : "s"}, and{" "}
+                      {employeeOpenTasks.length} open task
+                      {employeeOpenTasks.length === 1 ? "" : "s"}.
+                    </p>
+                  </div>
+                  <div className="dashboard-hero-panel__meta">
+                    <span>Weekly load</span>
+                    <strong>{employeeLoad}% planned</strong>
+                    <small>
+                      {employeePlannedHours}/{loggedEmployee.weeklyCapacityHours}h
+                    </small>
+                  </div>
+                </div>
+
+                <div className="dashboard-signal-grid" aria-label="Employee work signals">
+                  <div>
+                    <span>High priority</span>
+                    <strong>{employeeHighPriorityTasks.length}</strong>
+                    <small>Open assigned tasks</small>
+                  </div>
+                  <div>
+                    <span>Completion</span>
+                    <strong>{employeeCompletion}%</strong>
+                    <small>{employeeDoneTasks.length} tasks closed</small>
+                  </div>
+                  <div>
+                    <span>Teams</span>
+                    <strong>{employeeTeams.length}</strong>
+                    <small>Your team access</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="dashboard-focus-grid">
+                {employeeFocusItems.map((item) => (
+                  <article className="dashboard-focus-card" key={item.title}>
+                    <span>{item.title}</span>
+                    <strong>{item.value}</strong>
+                    <p>{item.helper}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="dashboard-main-grid" aria-label="Employee dashboard details">
+              <article className="dashboard-panel dashboard-panel--wide">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">My projects</p>
+                    <h2>Assigned project list</h2>
+                  </div>
+                  <span>{employeeProjects.length}</span>
+                </div>
+
+                <div className="employee-project-list">
+                  {employeeProjects.length > 0 ? (
+                    employeeProjects.map((projectItem) => {
+                      const projectTasks = employeeTasks.filter(
+                        (task) => task.projectId === projectItem.id
+                      );
+                      const projectOpenTasks = projectTasks.filter((task) => task.status !== "Done");
+                      const projectCompletion = getTaskCompletionPercent(projectTasks);
+
+                      return (
+                        <button
+                          className="project-access-card"
+                          key={projectItem.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedProjectId(projectItem.id);
+                            setActiveView("projects");
+                          }}
+                        >
+                          <span>
+                            <span className="eyebrow">{projectItem.clientName}</span>
+                            <strong>{projectItem.name}</strong>
+                            <span>{projectItem.description}</span>
+                          </span>
+                          <span className="project-access-card__meta">
+                            <small>Status: {projectItem.status}</small>
+                            <small>{projectOpenTasks.length} open tasks for you</small>
+                            <small>{projectCompletion}% of your tasks complete</small>
+                          </span>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p>No projects assigned to your account.</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="dashboard-panel">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Important work</p>
+                    <h2>Your task queue</h2>
+                  </div>
+                  <span>{employeeOpenTasks.length}</span>
+                </div>
+                <div className="dashboard-list">
+                  {employeeImportantTasks.length > 0 ? (
+                    employeeImportantTasks.map((task) => {
+                      const taskProject = projectRecords.find(
+                        (projectItem) => projectItem.id === task.projectId
+                      );
+
+                      return (
+                        <div className="dashboard-list-item" key={task.id}>
+                          <strong>{task.title}</strong>
+                          <span>
+                            {taskProject?.name ?? "Unknown project"} / {task.status} /{" "}
+                            {task.priority} priority
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p>No open assigned tasks.</p>
+                  )}
+                </div>
+              </article>
+
+              <article className="dashboard-panel">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Team info</p>
+                    <h2>{employeeTeams[0]?.name ?? "No team assigned"}</h2>
+                  </div>
+                  <span>{visibleTeamMembers.length} people</span>
+                </div>
+                <p>{employeeTeams[0]?.notes ?? "Your account is not attached to a team yet."}</p>
+                <div className="dashboard-list">
+                  {visibleTeamMembers.slice(0, 5).map((member) => (
+                    <div className="dashboard-list-item" key={member.id}>
+                      <strong>
+                        {member.name} {member.surname}
+                      </strong>
+                      <span>{member.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="dashboard-panel dashboard-panel--wide">
+                <div className="dashboard-panel__header">
+                  <div>
+                    <p className="eyebrow">Sprint context</p>
+                    <h2>Active sprint access</h2>
+                  </div>
+                  <span>{employeeActiveSprints.length}</span>
+                </div>
+                <div className="dashboard-list">
+                  {employeeActiveSprints.length > 0 ? (
+                    employeeActiveSprints.map((sprintItem) => {
+                      const sprintProject = projectRecords.find(
+                        (projectItem) => projectItem.id === sprintItem.projectId
+                      );
+
+                      return (
+                        <div className="dashboard-list-item" key={sprintItem.id}>
+                          <strong>{sprintItem.name}</strong>
+                          <span>
+                            {sprintProject?.name ?? "Unknown project"} / {sprintItem.startDate} to{" "}
+                            {sprintItem.endDate}
+                          </span>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p>No active sprint currently assigned to your projects.</p>
+                  )}
+                </div>
+              </article>
+            </section>
+          </>
+        )}
+
+        {activeView === "dashboard" && (isAdmin || !loggedEmployee) && (
           <>
             <PageHeader
               currentProject={selectedProject}

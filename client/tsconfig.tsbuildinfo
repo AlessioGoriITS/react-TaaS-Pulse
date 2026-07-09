@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/api/auth.ts","./src/components/metriccard.tsx","./src/components/taskboard.tsx","./src/data/demodata.ts","./src/lib/projectmetrics.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/main.tsx","./src/types.ts","./src/api/auth.ts","./src/api/workspace.ts","./src/components/metriccard.tsx","./src/components/taskboard.tsx","./src/data/demodata.ts","./src/lib/projectmetrics.ts"],"version":"5.9.3"}
