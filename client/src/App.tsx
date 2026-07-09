@@ -18,10 +18,13 @@ const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "tasks", label: "Task Board", helper: "Sprint execution" }
 ];
 
+type AuthStatus = "checking" | "authenticated" | "unauthenticated";
+
 function App() {
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [loginEmail, setLoginEmail] = useState("admin@taaspulse.local");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -39,8 +42,14 @@ function App() {
 
   useEffect(() => {
     getCurrentUser()
-      .then(setAuthUser)
-      .catch(() => setAuthUser(null));
+      .then((user) => {
+        setAuthUser(user);
+        setAuthStatus(user ? "authenticated" : "unauthenticated");
+      })
+      .catch(() => {
+        setAuthUser(null);
+        setAuthStatus("unauthenticated");
+      });
   }, []);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
@@ -51,8 +60,9 @@ function App() {
     try {
       const user = await login(loginEmail, loginPassword);
       setAuthUser(user);
+      setAuthStatus("authenticated");
       setLoginPassword("");
-      setIsLoginOpen(false);
+      setIsAccountMenuOpen(false);
     } catch (error) {
       setLoginError(error instanceof Error ? error.message : "Login failed");
     } finally {
@@ -63,6 +73,75 @@ function App() {
   async function handleLogout() {
     await logout();
     setAuthUser(null);
+    setAuthStatus("unauthenticated");
+    setIsAccountMenuOpen(false);
+  }
+
+  if (authStatus === "checking") {
+    return (
+      <main className="login-screen">
+        <section className="login-card">
+          <p className="eyebrow">TaaS Pulse</p>
+          <h1>Checking session</h1>
+          <p>Preparing your workspace access.</p>
+        </section>
+      </main>
+    );
+  }
+
+  if (!authUser) {
+    return (
+      <main className="login-screen">
+        <section className="login-card" aria-labelledby="login-title">
+          <div>
+            <p className="eyebrow">Customer Portal</p>
+            <h1 id="login-title">Sign in to TaaS Pulse</h1>
+            <p>
+              Access is required before viewing dashboards, employees, teams, projects,
+              or sprint tasks.
+            </p>
+          </div>
+
+          <form className="login-form" onSubmit={handleLogin}>
+            <label>
+              Email
+              <input
+                autoComplete="email"
+                name="email"
+                type="email"
+                value={loginEmail}
+                onChange={(event) => setLoginEmail(event.target.value)}
+                required
+              />
+            </label>
+
+            <label>
+              Password
+              <input
+                autoComplete="current-password"
+                name="password"
+                type="password"
+                value={loginPassword}
+                onChange={(event) => setLoginPassword(event.target.value)}
+                required
+              />
+            </label>
+
+            {loginError && <p className="form-error">{loginError}</p>}
+
+            <button type="submit" disabled={isSubmittingLogin}>
+              {isSubmittingLogin ? "Checking..." : "Sign in"}
+            </button>
+          </form>
+
+          <div className="demo-accounts">
+            <strong>Local demo accounts</strong>
+            <span>Admin: admin@taaspulse.local / AdminPass!2026</span>
+            <span>User: user@taaspulse.local / UserPass!2026</span>
+          </div>
+        </section>
+      </main>
+    );
   }
 
   return (
@@ -89,25 +168,66 @@ function App() {
       </aside>
 
       <main className="app-shell">
-        <div className="top-bar">
-          <div>
-            <span>Customer Portal</span>
-            <strong>{authUser ? `Signed in as ${authUser.role}` : "Guest mode"}</strong>
+        <header className="app-header">
+          <div className="app-header__main">
+            <p className="eyebrow">Customer Portal</p>
+            <h1>TaaS Pulse Workspace</h1>
+            <span>
+              {project.clientName} / {project.name}
+            </span>
           </div>
 
-          {authUser ? (
-            <div className="account-pill">
-              <span>{authUser.displayName}</span>
-              <button type="button" onClick={handleLogout}>
-                Logout
-              </button>
-            </div>
-          ) : (
-            <button className="login-button" type="button" onClick={() => setIsLoginOpen(true)}>
-              Login
+          <div className="app-header__actions">
+            <button className="ghost-button" type="button">
+              Export report
             </button>
-          )}
-        </div>
+
+            <div className="account-menu">
+              <button
+                className="account-trigger"
+                type="button"
+                aria-expanded={isAccountMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setIsAccountMenuOpen((isOpen) => !isOpen)}
+              >
+                <span className="account-avatar">{authUser.displayName.charAt(0)}</span>
+                <span>
+                  <strong>{authUser.displayName}</strong>
+                  <small>{authUser.role}</small>
+                </span>
+                <span className="account-caret">v</span>
+              </button>
+
+              {isAccountMenuOpen && (
+                <div className="account-dropdown" role="menu">
+                  <div className="account-dropdown__summary">
+                    <strong>{authUser.displayName}</strong>
+                    <span>{authUser.email}</span>
+                  </div>
+
+                  <button type="button" role="menuitem" onClick={() => setActiveView("dashboard")}>
+                    Dashboard
+                  </button>
+                  <button type="button" role="menuitem" onClick={() => setActiveView("projects")}>
+                    Project overview
+                  </button>
+
+                  {authUser.role === "admin" && (
+                    <button type="button" role="menuitem" onClick={() => setActiveView("team")}>
+                      Admin team tools
+                    </button>
+                  )}
+
+                  <div className="account-dropdown__separator" />
+
+                  <button className="danger-menu-item" type="button" role="menuitem" onClick={handleLogout}>
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
 
         {activeView === "dashboard" && (
           <>
@@ -270,67 +390,13 @@ function App() {
         )}
 
         <footer className="app-footer">
-          <span>© 2026 TaaS Pulse</span>
+          <span>(c) 2026 TaaS Pulse</span>
           <a href="#terms">Terms of Service</a>
           <a href="#privacy">Privacy Notice</a>
           <a href="#security">Security Info</a>
           <span>Demo system. Do not use real credentials.</span>
         </footer>
       </main>
-
-      {isLoginOpen && (
-        <div className="modal-backdrop" role="presentation">
-          <section className="login-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
-            <div className="login-modal__header">
-              <div>
-                <p className="eyebrow">Secure access</p>
-                <h2 id="login-title">Login</h2>
-              </div>
-              <button type="button" onClick={() => setIsLoginOpen(false)} aria-label="Close login">
-                x
-              </button>
-            </div>
-
-            <form className="login-form" onSubmit={handleLogin}>
-              <label>
-                Email
-                <input
-                  autoComplete="email"
-                  name="email"
-                  type="email"
-                  value={loginEmail}
-                  onChange={(event) => setLoginEmail(event.target.value)}
-                  required
-                />
-              </label>
-
-              <label>
-                Password
-                <input
-                  autoComplete="current-password"
-                  name="password"
-                  type="password"
-                  value={loginPassword}
-                  onChange={(event) => setLoginPassword(event.target.value)}
-                  required
-                />
-              </label>
-
-              {loginError && <p className="form-error">{loginError}</p>}
-
-              <button type="submit" disabled={isSubmittingLogin}>
-                {isSubmittingLogin ? "Checking..." : "Sign in"}
-              </button>
-            </form>
-
-            <div className="demo-accounts">
-              <strong>Local demo accounts</strong>
-              <span>Admin: admin@taaspulse.local / AdminPass!2026</span>
-              <span>User: user@taaspulse.local / UserPass!2026</span>
-            </div>
-          </section>
-        </div>
-      )}
     </div>
   );
 }

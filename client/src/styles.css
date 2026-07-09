@@ -25,6 +25,41 @@ button {
   cursor: pointer;
 }
 
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    linear-gradient(135deg, rgb(50 103 214 / 0.1), transparent 34%),
+    #f5f7fb;
+}
+
+.login-card {
+  width: min(100%, 440px);
+  display: grid;
+  gap: 20px;
+  padding: 24px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgb(24 33 47 / 0.14);
+}
+
+.login-card h1,
+.login-card p {
+  margin: 0;
+}
+
+.login-card h1 {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
+.login-card p:not(.eyebrow) {
+  color: #687789;
+}
+
 .app-layout {
   min-height: 100vh;
   display: grid;
@@ -92,59 +127,171 @@ button {
   padding: 32px 0;
 }
 
-.top-bar {
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 15;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 24px;
+  padding: 16px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
 }
 
-.top-bar div:first-child {
+.app-header__main {
   display: grid;
   gap: 4px;
 }
 
-.top-bar span,
+.app-header__main h1,
+.app-header__main p {
+  margin: 0;
+}
+
+.app-header__main h1 {
+  font-size: 1.45rem;
+}
+
+.app-header__main span,
 .app-footer,
 .demo-accounts,
 .form-error {
   color: #687789;
 }
 
-.top-bar strong {
-  font-size: 1.05rem;
+.app-header__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.login-button,
-.account-pill button,
+.ghost-button {
+  padding: 10px 14px;
+  border: 1px solid #cfd8e6;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #3267d6;
+  font-weight: 800;
+}
+
+.account-menu {
+  position: relative;
+}
+
+.account-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  padding: 8px 10px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #f8fbff;
+  color: #18212f;
+  text-align: left;
+}
+
+.account-trigger > span:nth-child(2) {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.account-trigger strong,
+.account-trigger small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.account-trigger small {
+  color: #687789;
+}
+
+.account-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: #3267d6;
+  color: #ffffff;
+  font-weight: 900;
+}
+
+.account-caret {
+  margin-left: auto;
+  color: #687789;
+  font-size: 0.8rem;
+  font-weight: 900;
+}
+
+.account-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: min(300px, calc(100vw - 32px));
+  padding: 8px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 18px 50px rgb(24 33 47 / 0.16);
+}
+
+.account-dropdown__summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f5f7fb;
+}
+
+.account-dropdown__summary span {
+  color: #687789;
+  font-size: 0.86rem;
+  overflow-wrap: anywhere;
+}
+
+.account-dropdown button {
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #18212f;
+  text-align: left;
+  font-weight: 800;
+}
+
+.account-dropdown button:hover {
+  background: #edf2fb;
+  color: #1f4fac;
+}
+
+.account-dropdown__separator {
+  height: 1px;
+  margin: 8px 0;
+  background: #e7edf5;
+}
+
+.danger-menu-item {
+  color: #b42318 !important;
+}
+
 .login-form button {
   border: 0;
   border-radius: 8px;
   background: #3267d6;
   color: #ffffff;
   font-weight: 800;
-}
-
-.login-button,
-.account-pill button {
-  padding: 10px 14px;
-}
-
-.account-pill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px;
-  border: 1px solid #dce3ee;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.account-pill span {
-  padding-left: 8px;
-  color: #18212f;
-  font-weight: 700;
 }
 
 .page-header {
@@ -549,7 +696,7 @@ button {
   }
 
   .page-header,
-  .top-bar,
+  .app-header,
   .sprint-summary,
   .project-card {
     flex-direction: column;
@@ -565,6 +712,19 @@ button {
 
   .sprint-summary span {
     white-space: normal;
+  }
+
+  .app-header__actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .account-menu {
+    flex: 1;
+  }
+
+  .account-trigger {
+    width: 100%;
   }
 }
 
@@ -587,5 +747,16 @@ button {
 
   .table-row--head {
     display: none;
+  }
+
+  .app-header__actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .account-dropdown {
+    left: 0;
+    right: auto;
+    width: 100%;
   }
 }
