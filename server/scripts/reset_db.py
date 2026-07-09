@@ -21,11 +21,11 @@ DEMO_USERS = [
         "password": "AdminPass!2026",
     },
     {
-        "email": "user@taaspulse.local",
-        "display_name": "Standard User",
+        "email": "ari.chen@example.com",
+        "display_name": "Ari Chen",
         "role": "user",
         "employee_id": 1,
-        "password": "UserPass!2026",
+        "password": "EmployeePass!2026",
     },
 ]
 

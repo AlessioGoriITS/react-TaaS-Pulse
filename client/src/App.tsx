@@ -1170,7 +1170,7 @@ function App() {
           <div className="demo-accounts">
             <strong>Local demo accounts</strong>
             <span>Admin: admin@taaspulse.local / AdminPass!2026</span>
-            <span>User: user@taaspulse.local / UserPass!2026</span>
+            <span>Employee: ari.chen@example.com / EmployeePass!2026</span>
           </div>
         </section>
       </main>
@@ -1184,6 +1184,24 @@ function App() {
           <span>TaaS</span>
           <strong>Pulse</strong>
         </div>
+
+        <label className="mobile-nav-select">
+          <span>Menu</span>
+          <select
+            value={activeView}
+            onChange={(event) => handleNavigation(event.target.value as ViewId)}
+          >
+            {navigationItems.map((item) => (
+              <option
+                disabled={authUser.role === "user" && ["dependents", "admin"].includes(item.id)}
+                key={item.id}
+                value={item.id}
+              >
+                {item.label}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <nav className="fast-nav" aria-label="Fast navigation">
           {navigationItems.map((item) => (
@@ -1220,9 +1238,6 @@ function App() {
           </div>
 
           <div className="app-header__actions">
-            <button className="ghost-button" type="button">
-              Export report
-            </button>
 
             <div className="account-menu">
               <button
@@ -1283,9 +1298,12 @@ function App() {
             <section className="dashboard-overview" aria-label="Dashboard overview">
               <div className="dashboard-hero-panel">
                 <div className="dashboard-hero-panel__top">
-                  <div>
+                  <div className="dashboard-risk-copy">
                     <p className="eyebrow">Workspace overview</p>
-                    <h2>{riskLabel}</h2>
+                    <div className="dashboard-risk-heading">
+                      <span aria-hidden="true" />
+                      <h2>{riskLabel}</h2>
+                    </div>
                     <p>
                       {projectRecords.length} active projects, {sprintRecords.length} sprint
                       plans, and {portfolioOpenTasks.length} open tasks across the workspace.
@@ -1294,6 +1312,9 @@ function App() {
                   <div className="dashboard-hero-panel__meta">
                     <span>Portfolio budget</span>
                     <strong>{portfolioBudgetUsage}% used</strong>
+                    <small>
+                      {portfolioUsedHours}/{portfolioBudgetHours}h
+                    </small>
                   </div>
                 </div>
 
@@ -1327,32 +1348,7 @@ function App() {
               </div>
             </section>
 
-            <section className="metrics-grid" aria-label="Portfolio metrics">
-              <MetricCard
-                label="Active projects"
-                value={String(projectRecords.length)}
-                helper={`${atRiskProjectCount} at risk or blocked`}
-                tone={atRiskProjectCount > 0 ? "warning" : "neutral"}
-              />
-              <MetricCard
-                label="Portfolio budget"
-                value={`${portfolioBudgetUsage}%`}
-                helper={`${portfolioUsedHours} of ${portfolioBudgetHours} hours used`}
-                tone={portfolioBudgetUsage > 75 ? "warning" : "neutral"}
-              />
-              <MetricCard
-                label="Task completion"
-                value={`${portfolioCompletion}%`}
-                helper={`${portfolioDoneTasks.length} of ${tasks.length} tasks done`}
-                tone="success"
-              />
-              <MetricCard
-                label="Team capacity"
-                value={`${portfolioCapacity}h`}
-                helper={`${teamMemberRecords.length} people in the workspace`}
-                tone="neutral"
-              />
-            </section>
+           
 
             <section className="dashboard-main-grid" aria-label="Dashboard detail panels">
               <article className="dashboard-panel dashboard-panel--wide">
