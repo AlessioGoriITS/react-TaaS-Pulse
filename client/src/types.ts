@@ -10,6 +10,7 @@ export type AuthUser = {
   email: string;
   displayName: string;
   role: UserRole;
+  employeeId: number | null;
 };
 
 export type TeamMember = {
@@ -27,6 +28,7 @@ export type TeamMember = {
 
 export type Task = {
   id: number;
+  projectId: number;
   title: string;
   status: TaskStatus;
   assigneeId: number;

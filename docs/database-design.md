@@ -134,6 +134,7 @@ Important fields:
 - `email`: unique login identifier
 - `display_name`: name shown in the UI
 - `role`: either `admin` or `user`
+- `employee_id`: optional link to the employee represented by this account
 - `password_hash`: derived password hash, never the plain password
 - `password_salt`: random salt used for hashing
 - `password_iterations`: PBKDF2 work factor
@@ -142,8 +143,10 @@ Important fields:
 - `last_login_at`: last successful login
 
 This table is separate from `employees` on purpose. An employee is a business person
-in the delivery model; a user is an application account. Later they can be linked if
-the product needs that.
+in the delivery model; a user is an application account. When a normal user account
+has an `employee_id`, the app can restrict that account to the projects and team of
+that employee. Admin users can leave `employee_id` empty and rely on the `admin` role
+to see everything.
 
 ### user_sessions
 

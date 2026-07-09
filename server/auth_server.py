@@ -96,7 +96,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         with open_db() as connection:
             user = connection.execute(
                 """
-                SELECT id, email, display_name, role, password_hash, password_salt,
+                SELECT id, email, display_name, role, employee_id, password_hash, password_salt,
                        password_iterations, failed_login_attempts, locked_until
                 FROM users
                 WHERE email = ?;
@@ -167,6 +167,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     "email": user["email"],
                     "displayName": user["display_name"],
                     "role": user["role"],
+                    "employeeId": user["employee_id"],
                 }
             },
             extra_headers=[self.session_cookie_header(token, SESSION_HOURS * 60 * 60)],
@@ -181,7 +182,7 @@ class AuthHandler(BaseHTTPRequestHandler):
         with open_db() as connection:
             session = connection.execute(
                 """
-                SELECT u.email, u.display_name, u.role, s.expires_at
+                SELECT u.email, u.display_name, u.role, u.employee_id, s.expires_at
                 FROM user_sessions s
                 JOIN users u ON u.id = s.user_id
                 WHERE s.token_hash = ?;
@@ -203,6 +204,7 @@ class AuthHandler(BaseHTTPRequestHandler):
                     "email": session["email"],
                     "displayName": session["display_name"],
                     "role": session["role"],
+                    "employeeId": session["employee_id"],
                 }
             }
         )

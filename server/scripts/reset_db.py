@@ -17,12 +17,14 @@ DEMO_USERS = [
         "email": "admin@taaspulse.local",
         "display_name": "Admin User",
         "role": "admin",
+        "employee_id": None,
         "password": "AdminPass!2026",
     },
     {
         "email": "user@taaspulse.local",
         "display_name": "Standard User",
         "role": "user",
+        "employee_id": 1,
         "password": "UserPass!2026",
     },
 ]
@@ -47,16 +49,18 @@ def seed_demo_users(connection: sqlite3.Connection) -> None:
               email,
               display_name,
               role,
+              employee_id,
               password_hash,
               password_salt,
               password_iterations
             )
-            VALUES (?, ?, ?, ?, ?, ?);
+            VALUES (?, ?, ?, ?, ?, ?, ?);
             """,
             (
                 demo_user["email"],
                 demo_user["display_name"],
                 demo_user["role"],
+                demo_user["employee_id"],
                 hash_password(demo_user["password"], salt),
                 salt.hex(),
                 PASSWORD_ITERATIONS,

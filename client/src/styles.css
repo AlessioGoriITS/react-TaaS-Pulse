@@ -117,12 +117,28 @@ button {
   color: #1f4fac;
 }
 
+.nav-item:disabled,
+.nav-item--disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.nav-item:disabled:hover,
+.nav-item--disabled:hover {
+  border-color: transparent;
+  background: transparent;
+  color: #4b5a6d;
+}
+
 .nav-item span {
   font-size: 0.82rem;
 }
 
 .app-shell {
   width: min(1180px, calc(100% - 32px));
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   margin: 0 auto;
   padding: 32px 0;
 }
@@ -572,12 +588,58 @@ button {
   font-weight: 700;
 }
 
+.project-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.project-access-card {
+  min-height: 230px;
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid #dce3ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #18212f;
+  text-align: left;
+  box-shadow: 0 10px 30px rgb(24 33 47 / 0.06);
+}
+
+.project-access-card:hover,
+.project-access-card--active {
+  border-color: #3267d6;
+  background: #f8fbff;
+}
+
+.project-access-card strong {
+  font-size: 1.18rem;
+}
+
+.project-access-card span:not(.eyebrow),
+.project-access-card small {
+  color: #687789;
+}
+
+.project-access-card--locked {
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.project-access-card--locked:hover {
+  border-color: #dce3ee;
+  background: #ffffff;
+}
+
 .app-footer {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
   align-items: center;
-  margin-top: 32px;
+  margin-top: auto;
   padding-top: 18px;
   border-top: 1px solid #dce3ee;
   font-size: 0.88rem;
@@ -706,7 +768,8 @@ button {
 
   .metrics-grid,
   .board,
-  .detail-grid {
+  .detail-grid,
+  .project-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -736,7 +799,8 @@ button {
 
   .metrics-grid,
   .board,
-  .detail-grid {
+  .detail-grid,
+  .project-list {
     grid-template-columns: 1fr;
   }
 

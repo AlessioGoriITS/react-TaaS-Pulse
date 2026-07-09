@@ -71,6 +71,47 @@ VALUES (
   'Budget usage is moving faster than task completion.'
 );
 
+INSERT INTO projects (
+  id,
+  name,
+  client_name,
+  description,
+  status,
+  budget_hours,
+  used_hours,
+  start_date,
+  deadline,
+  risk_level,
+  risk_notes
+)
+VALUES
+  (
+    2,
+    'Internal Billing Console',
+    'Acme Finance',
+    'Build an internal console for invoice review and budget reporting.',
+    'active',
+    260,
+    82,
+    '2026-07-01',
+    '2026-09-12',
+    'low',
+    'Discovery is complete and implementation is moving steadily.'
+  ),
+  (
+    3,
+    'Partner Support Portal',
+    'Globex Partners',
+    'Create a support portal for partner onboarding and ticket routing.',
+    'paused',
+    340,
+    312,
+    '2026-05-18',
+    '2026-07-30',
+    'high',
+    'External API access is delayed by the client security review.'
+  );
+
 INSERT INTO teams (id, name, focus_area, lead_employee_id, notes)
 VALUES (
   1,

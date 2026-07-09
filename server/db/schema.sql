@@ -80,6 +80,7 @@ CREATE TABLE users (
   email TEXT NOT NULL UNIQUE,
   display_name TEXT NOT NULL,
   role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+  employee_id INTEGER,
   password_hash TEXT NOT NULL,
   password_salt TEXT NOT NULL,
   password_iterations INTEGER NOT NULL CHECK (password_iterations >= 100000),
@@ -87,7 +88,8 @@ CREATE TABLE users (
   locked_until TEXT,
   last_login_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees (id) ON DELETE SET NULL
 );
 
 CREATE TABLE user_sessions (
@@ -151,6 +153,7 @@ CREATE INDEX idx_team_memberships_employee_id ON team_memberships (employee_id);
 CREATE INDEX idx_team_projects_team_id ON team_projects (team_id);
 CREATE INDEX idx_team_projects_project_id ON team_projects (project_id);
 CREATE INDEX idx_users_email ON users (email);
+CREATE INDEX idx_users_employee_id ON users (employee_id);
 CREATE INDEX idx_user_sessions_user_id ON user_sessions (user_id);
 CREATE INDEX idx_user_sessions_token_hash ON user_sessions (token_hash);
 CREATE INDEX idx_project_memberships_project_id ON project_memberships (project_id);

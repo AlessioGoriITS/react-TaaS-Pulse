@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import { MetricCard } from "./components/MetricCard";
 import { TaskBoard } from "./components/TaskBoard";
-import { project, sprint, tasks, teamMembers, teams } from "./data/demoData";
+import { project, projects, sprint, tasks, teamMembers, teams } from "./data/demoData";
 import {
   getBudgetUsagePercent,
   getDeliveryRisk,
@@ -22,6 +22,7 @@ type AuthStatus = "checking" | "authenticated" | "unauthenticated";
 
 function App() {
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
+  const [selectedProjectId, setSelectedProjectId] = useState(project.id);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
@@ -30,15 +31,49 @@ function App() {
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
 
-  const budgetUsage = useMemo(() => getBudgetUsagePercent(project), []);
-  const taskCompletion = useMemo(() => getTaskCompletionPercent(tasks), []);
-  const deliveryRisk = useMemo(() => getDeliveryRisk(project, tasks), []);
-  const totalCapacity = teamMembers.reduce(
+  const isAdmin = authUser?.role === "admin";
+  const loggedEmployee = authUser?.employeeId
+    ? teamMembers.find((member) => member.id === authUser.employeeId)
+    : undefined;
+  const accessibleProjectIds = isAdmin
+    ? projects.map((projectItem) => projectItem.id)
+    : loggedEmployee?.projectIds ?? [];
+  const selectedProject =
+    projects.find(
+      (projectItem) =>
+        projectItem.id === selectedProjectId && accessibleProjectIds.includes(projectItem.id)
+    ) ??
+    projects.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
+    projects[0];
+  const selectedProjectTasks = tasks.filter((task) => task.projectId === selectedProject.id);
+  const visibleTeam =
+    isAdmin || !loggedEmployee
+      ? teams[0]
+      : teams.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teams[0];
+  const visibleTeamMembers = teamMembers.filter((member) =>
+    visibleTeam.memberIds.includes(member.id)
+  );
+
+  const budgetUsage = useMemo(() => getBudgetUsagePercent(selectedProject), [selectedProject]);
+  const taskCompletion = useMemo(
+    () => getTaskCompletionPercent(selectedProjectTasks),
+    [selectedProjectTasks]
+  );
+  const deliveryRisk = useMemo(
+    () => getDeliveryRisk(selectedProject, selectedProjectTasks),
+    [selectedProject, selectedProjectTasks]
+  );
+  const totalCapacity = visibleTeamMembers.reduce(
     (total, member) => total + member.weeklyCapacityHours,
     0
   );
-  const activeTeam = teams[0];
-  const teamLead = teamMembers.find((member) => member.id === activeTeam.leadId);
+  const teamLead = teamMembers.find((member) => member.id === visibleTeam.leadId);
+
+  useEffect(() => {
+    if (authUser?.role === "user" && activeView === "dependents") {
+      setActiveView("dashboard");
+    }
+  }, [activeView, authUser]);
 
   useEffect(() => {
     getCurrentUser()
@@ -75,6 +110,18 @@ function App() {
     setAuthUser(null);
     setAuthStatus("unauthenticated");
     setIsAccountMenuOpen(false);
+  }
+
+  function handleNavigation(viewId: ViewId) {
+    if (authUser?.role === "user" && viewId === "dependents") {
+      return;
+    }
+
+    setActiveView(viewId);
+  }
+
+  function canOpenProject(projectId: number) {
+    return accessibleProjectIds.includes(projectId);
   }
 
   if (authStatus === "checking") {
@@ -155,10 +202,17 @@ function App() {
         <nav className="fast-nav" aria-label="Fast navigation">
           {navigationItems.map((item) => (
             <button
-              className={activeView === item.id ? "nav-item nav-item--active" : "nav-item"}
+              className={[
+                "nav-item",
+                activeView === item.id ? "nav-item--active" : "",
+                authUser.role === "user" && item.id === "dependents" ? "nav-item--disabled" : ""
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              disabled={authUser.role === "user" && item.id === "dependents"}
               key={item.id}
               type="button"
-              onClick={() => setActiveView(item.id)}
+              onClick={() => handleNavigation(item.id)}
             >
               <strong>{item.label}</strong>
               <span>{item.helper}</span>
@@ -173,7 +227,7 @@ function App() {
             <p className="eyebrow">Customer Portal</p>
             <h1>TaaS Pulse Workspace</h1>
             <span>
-              {project.clientName} / {project.name}
+              {selectedProject.clientName} / {selectedProject.name}
             </span>
           </div>
 
@@ -205,15 +259,15 @@ function App() {
                     <span>{authUser.email}</span>
                   </div>
 
-                  <button type="button" role="menuitem" onClick={() => setActiveView("dashboard")}>
+                  <button type="button" role="menuitem" onClick={() => handleNavigation("dashboard")}>
                     Dashboard
                   </button>
-                  <button type="button" role="menuitem" onClick={() => setActiveView("projects")}>
+                  <button type="button" role="menuitem" onClick={() => handleNavigation("projects")}>
                     Project overview
                   </button>
 
                   {authUser.role === "admin" && (
-                    <button type="button" role="menuitem" onClick={() => setActiveView("team")}>
+                    <button type="button" role="menuitem" onClick={() => handleNavigation("team")}>
                       Admin team tools
                     </button>
                   )}
@@ -232,8 +286,9 @@ function App() {
         {activeView === "dashboard" && (
           <>
             <PageHeader
+              currentProject={selectedProject}
               eyebrow="Dashboard"
-              title={project.name}
+              title={selectedProject.name}
               description="A compact project-health dashboard for tracking budget, sprint progress, team capacity, and delivery risk."
             />
 
@@ -241,13 +296,13 @@ function App() {
               <MetricCard
                 label="Budget used"
                 value={`${budgetUsage}%`}
-                helper={`${project.usedHours} of ${project.budgetHours} hours`}
+                helper={`${selectedProject.usedHours} of ${selectedProject.budgetHours} hours`}
                 tone={budgetUsage > 70 ? "warning" : "neutral"}
               />
               <MetricCard
                 label="Task completion"
                 value={`${taskCompletion}%`}
-                helper={`${tasks.filter((task) => task.status === "Done").length} of ${tasks.length} tasks done`}
+                helper={`${selectedProjectTasks.filter((task) => task.status === "Done").length} of ${selectedProjectTasks.length} tasks done`}
                 tone="success"
               />
               <MetricCard
@@ -258,7 +313,7 @@ function App() {
               <MetricCard
                 label="Delivery risk"
                 value={deliveryRisk}
-                helper={`Project status: ${project.status}`}
+                helper={`Project status: ${selectedProject.status}`}
                 tone={deliveryRisk === "Medium" ? "warning" : "neutral"}
               />
             </section>
@@ -279,6 +334,7 @@ function App() {
         {activeView === "dependents" && (
           <>
             <PageHeader
+              currentProject={selectedProject}
               eyebrow="Dependents Info"
               title="Employee directory"
               description="People available for project delivery, with contact data, job information, and capacity."
@@ -317,16 +373,17 @@ function App() {
         {activeView === "team" && (
           <>
             <PageHeader
+              currentProject={selectedProject}
               eyebrow="Team Info"
-              title={activeTeam.name}
+              title={visibleTeam.name}
               description="Team view for understanding ownership, capacity, focus area, and project assignment."
             />
 
             <section className="detail-grid">
               <article className="detail-panel">
                 <p className="eyebrow">Focus area</p>
-                <h2>{activeTeam.focusArea}</h2>
-                <p>{activeTeam.notes}</p>
+                <h2>{visibleTeam.focusArea}</h2>
+                <p>{visibleTeam.notes}</p>
               </article>
 
               <article className="detail-panel">
@@ -340,7 +397,7 @@ function App() {
               <article className="detail-panel">
                 <p className="eyebrow">Capacity</p>
                 <h2>{totalCapacity}h/week</h2>
-                <p>{activeTeam.memberIds.length} people in this team.</p>
+                <p>{visibleTeam.memberIds.length} people in this team.</p>
               </article>
             </section>
           </>
@@ -349,31 +406,43 @@ function App() {
         {activeView === "projects" && (
           <>
             <PageHeader
+              currentProject={selectedProject}
               eyebrow="Projects"
               title="Client delivery overview"
-              description="Project-level information used to understand budget, deadline, and delivery risk."
+              description={
+                isAdmin
+                  ? "Admin users can open every client project."
+                  : "Projects outside your assignment are visible but locked."
+              }
             />
 
-            <section className="project-card">
-              <div>
-                <p className="eyebrow">{project.clientName}</p>
-                <h2>{project.name}</h2>
-                <p>{project.description}</p>
-              </div>
-              <dl>
-                <div>
-                  <dt>Deadline</dt>
-                  <dd>{project.deadline}</dd>
-                </div>
-                <div>
-                  <dt>Status</dt>
-                  <dd>{project.status}</dd>
-                </div>
-                <div>
-                  <dt>Risk notes</dt>
-                  <dd>{project.riskNotes}</dd>
-                </div>
-              </dl>
+            <section className="project-list" aria-label="Project access list">
+              {projects.map((projectItem) => {
+                const isAccessible = canOpenProject(projectItem.id);
+
+                return (
+                  <button
+                    className={[
+                      "project-access-card",
+                      selectedProject.id === projectItem.id ? "project-access-card--active" : "",
+                      !isAccessible ? "project-access-card--locked" : ""
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    disabled={!isAccessible}
+                    key={projectItem.id}
+                    type="button"
+                    onClick={() => setSelectedProjectId(projectItem.id)}
+                  >
+                    <span className="eyebrow">{projectItem.clientName}</span>
+                    <strong>{projectItem.name}</strong>
+                    <span>{projectItem.description}</span>
+                    <small>
+                      {isAccessible ? `Deadline: ${projectItem.deadline}` : "Locked: not assigned"}
+                    </small>
+                  </button>
+                );
+              })}
             </section>
           </>
         )}
@@ -381,11 +450,12 @@ function App() {
         {activeView === "tasks" && (
           <>
             <PageHeader
+              currentProject={selectedProject}
               eyebrow="Task Board"
               title="Sprint execution"
               description="A quick board for seeing what is open, in progress, under review, and done."
             />
-            <TaskBoard tasks={tasks} teamMembers={teamMembers} />
+            <TaskBoard tasks={selectedProjectTasks} teamMembers={teamMembers} />
           </>
         )}
 
@@ -402,12 +472,13 @@ function App() {
 }
 
 type PageHeaderProps = {
+  currentProject: typeof project;
   eyebrow: string;
   title: string;
   description: string;
 };
 
-function PageHeader({ eyebrow, title, description }: PageHeaderProps) {
+function PageHeader({ currentProject, eyebrow, title, description }: PageHeaderProps) {
   return (
     <header className="page-header">
       <div>
@@ -417,8 +488,8 @@ function PageHeader({ eyebrow, title, description }: PageHeaderProps) {
       </div>
       <div className="project-status">
         <span>Client</span>
-        <strong>{project.clientName}</strong>
-        <small>Deadline: {project.deadline}</small>
+        <strong>{currentProject.clientName}</strong>
+        <small>Deadline: {currentProject.deadline}</small>
       </div>
     </header>
   );
