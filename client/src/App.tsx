@@ -6,18 +6,20 @@ import {
   projects as initialProjects,
   sprints as initialSprints,
   tasks,
-  teamMembers,
-  teams
+  teamMembers as initialTeamMembers,
+  teams as initialTeams
 } from "./data/demoData";
 import {
   getBudgetUsagePercent,
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { AuthUser, Project, Sprint, ViewId } from "./types";
+import type { AuthUser, Project, Sprint, Team, TeamMember, ViewId } from "./types";
 
 const defaultProject = initialProjects[0];
 const defaultSprint = initialSprints[0];
+const defaultTeamMember = initialTeamMembers[0];
+const defaultTeam = initialTeams[0];
 const defaultDefinitionOfDone = "Code reviewed, tested, documented, and ready for demo.";
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
@@ -46,6 +48,10 @@ function App() {
   const [isEmployeeAutocompleteOpen, setIsEmployeeAutocompleteOpen] = useState(false);
   const [employeeJobFilter, setEmployeeJobFilter] = useState("all");
   const [employeeProjectFilter, setEmployeeProjectFilter] = useState("all");
+  const [openedDependentId, setOpenedDependentId] = useState<number | null>(null);
+  const [teamMemberRecords, setTeamMemberRecords] =
+    useState<TeamMember[]>(initialTeamMembers);
+  const [teamRecords, setTeamRecords] = useState<Team[]>(initialTeams);
   const [projectRecords, setProjectRecords] = useState<Project[]>(initialProjects);
   const [projectSearch, setProjectSearch] = useState("");
   const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
@@ -69,7 +75,8 @@ function App() {
   const [newSprintRisks, setNewSprintRisks] = useState("");
   const [newSprintBacklogNotes, setNewSprintBacklogNotes] = useState("");
   const [sprintCreatorMessage, setSprintCreatorMessage] = useState("");
-  const [adminEditSection, setAdminEditSection] = useState<"sprints" | "projects">("sprints");
+  const [adminEditSection, setAdminEditSection] =
+    useState<"sprints" | "projects" | "teams" | "dependents">("sprints");
   const [projectFormMode, setProjectFormMode] = useState<"create" | "edit">("edit");
   const [editedProjectId, setEditedProjectId] = useState(String(defaultProject.id));
   const [editedProjectName, setEditedProjectName] = useState(defaultProject.name);
@@ -92,10 +99,41 @@ function App() {
   );
   const [editedProjectRiskNotes, setEditedProjectRiskNotes] = useState(defaultProject.riskNotes);
   const [projectEditorMessage, setProjectEditorMessage] = useState("");
+  const [dependentFormMode, setDependentFormMode] = useState<"create" | "edit">("edit");
+  const [editedDependentId, setEditedDependentId] = useState(String(defaultTeamMember.id));
+  const [dependentName, setDependentName] = useState(defaultTeamMember.name);
+  const [dependentSurname, setDependentSurname] = useState(defaultTeamMember.surname);
+  const [dependentEmail, setDependentEmail] = useState(defaultTeamMember.email);
+  const [dependentPhoneNumber, setDependentPhoneNumber] = useState(defaultTeamMember.phoneNumber);
+  const [dependentRole, setDependentRole] = useState(defaultTeamMember.role);
+  const [dependentHourlyWage, setDependentHourlyWage] = useState(
+    String(defaultTeamMember.hourlyWage)
+  );
+  const [dependentWeeklyCapacityHours, setDependentWeeklyCapacityHours] = useState(
+    String(defaultTeamMember.weeklyCapacityHours)
+  );
+  const [dependentProjectIds, setDependentProjectIds] = useState<string[]>(
+    defaultTeamMember.projectIds.map(String)
+  );
+  const [dependentBio, setDependentBio] = useState(defaultTeamMember.bio);
+  const [dependentEditorMessage, setDependentEditorMessage] = useState("");
+  const [teamFormMode, setTeamFormMode] = useState<"create" | "edit">("edit");
+  const [editedTeamId, setEditedTeamId] = useState(String(defaultTeam.id));
+  const [teamName, setTeamName] = useState(defaultTeam.name);
+  const [teamFocusArea, setTeamFocusArea] = useState(defaultTeam.focusArea);
+  const [teamLeadId, setTeamLeadId] = useState(String(defaultTeam.leadId));
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>(
+    defaultTeam.memberIds.map(String)
+  );
+  const [teamProjectIds, setTeamProjectIds] = useState<string[]>(
+    defaultTeam.projectIds.map(String)
+  );
+  const [teamNotes, setTeamNotes] = useState(defaultTeam.notes);
+  const [teamEditorMessage, setTeamEditorMessage] = useState("");
 
   const isAdmin = authUser?.role === "admin";
   const loggedEmployee = authUser?.employeeId
-    ? teamMembers.find((member) => member.id === authUser.employeeId)
+    ? teamMemberRecords.find((member) => member.id === authUser.employeeId)
     : undefined;
   const accessibleProjectIds = isAdmin
     ? projectRecords.map((projectItem) => projectItem.id)
@@ -122,9 +160,9 @@ function App() {
     : selectedProjectTasks;
   const visibleTeam =
     isAdmin || !loggedEmployee
-      ? teams[0]
-      : teams.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teams[0];
-  const visibleTeamMembers = teamMembers.filter((member) =>
+      ? teamRecords[0]
+      : teamRecords.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teamRecords[0];
+  const visibleTeamMembers = teamMemberRecords.filter((member) =>
     visibleTeam.memberIds.includes(member.id)
   );
 
@@ -141,14 +179,14 @@ function App() {
     (total, member) => total + member.weeklyCapacityHours,
     0
   );
-  const teamLead = teamMembers.find((member) => member.id === visibleTeam.leadId);
-  const jobOptions = Array.from(new Set(teamMembers.map((member) => member.role))).sort();
+  const teamLead = teamMemberRecords.find((member) => member.id === visibleTeam.leadId);
+  const jobOptions = Array.from(new Set(teamMemberRecords.map((member) => member.role))).sort();
   const employeeSearchValue = employeeSearch.trim().toLowerCase();
   const normalizedEmployeePhoneSearch = normalizePhoneSearch(employeeSearch);
   const employeeSuggestions =
     employeeSearchValue.length === 0
       ? []
-      : teamMembers
+      : teamMemberRecords
           .filter((member) => {
             const fullName = `${member.name} ${member.surname}`.toLowerCase();
             const memberPhone = normalizePhoneSearch(member.phoneNumber);
@@ -161,7 +199,7 @@ function App() {
             );
           })
           .slice(0, 8);
-  const filteredTeamMembers = teamMembers.filter((member) => {
+  const filteredTeamMembers = teamMemberRecords.filter((member) => {
     const fullName = `${member.name} ${member.surname}`.toLowerCase();
     const memberPhone = normalizePhoneSearch(member.phoneNumber);
     const matchesSearch =
@@ -178,6 +216,18 @@ function App() {
 
     return matchesSearch && matchesJob && matchesProject;
   });
+  const openedDependent = openedDependentId
+    ? teamMemberRecords.find((member) => member.id === openedDependentId)
+    : undefined;
+  const openedDependentProjects = openedDependent
+    ? projectRecords.filter((projectItem) => openedDependent.projectIds.includes(projectItem.id))
+    : [];
+  const openedDependentTeams = openedDependent
+    ? teamRecords.filter((team) => team.memberIds.includes(openedDependent.id))
+    : [];
+  const openedDependentTasks = openedDependent
+    ? tasks.filter((task) => task.assigneeId === openedDependent.id)
+    : [];
   const projectSearchValue = projectSearch.trim().toLowerCase();
   const filteredProjects = projectRecords.filter((projectItem) => {
     if (projectSearchValue.length === 0) {
@@ -193,10 +243,10 @@ function App() {
     ? projectRecords.find((projectItem) => projectItem.id === openedProjectId)
     : undefined;
   const openedProjectTeam = openedProject
-    ? teams.find((team) => team.projectIds.includes(openedProject.id))
+    ? teamRecords.find((team) => team.projectIds.includes(openedProject.id))
     : undefined;
   const openedProjectTeamMembers = openedProjectTeam
-    ? teamMembers.filter((member) => openedProjectTeam.memberIds.includes(member.id))
+    ? teamMemberRecords.filter((member) => openedProjectTeam.memberIds.includes(member.id))
     : [];
   const openedProjectSprints = openedProject
     ? sprintRecords.filter((sprintItem) => sprintItem.projectId === openedProject.id)
@@ -225,17 +275,17 @@ function App() {
     ? projectRecords.find((projectItem) => projectItem.id === openedSprint.projectId)
     : undefined;
   const openedSprintTeam = openedSprintProject
-    ? teams.find((team) => team.projectIds.includes(openedSprintProject.id))
+    ? teamRecords.find((team) => team.projectIds.includes(openedSprintProject.id))
     : undefined;
   const openedSprintTeamMembers = openedSprintTeam
-    ? teamMembers.filter((member) => openedSprintTeam.memberIds.includes(member.id))
+    ? teamMemberRecords.filter((member) => openedSprintTeam.memberIds.includes(member.id))
     : [];
   const openedSprintTasks = openedSprint
     ? tasks.filter((task) => task.sprintId === openedSprint.id)
     : [];
-  const selectedProjectTeam = teams.find((team) => team.projectIds.includes(selectedProject.id));
+  const selectedProjectTeam = teamRecords.find((team) => team.projectIds.includes(selectedProject.id));
   const selectedProjectTeamMembers = selectedProjectTeam
-    ? teamMembers.filter((member) => selectedProjectTeam.memberIds.includes(member.id))
+    ? teamMemberRecords.filter((member) => selectedProjectTeam.memberIds.includes(member.id))
     : [];
   const sprintExecutionTitle = selectedSprint ? selectedSprint.name : "All sprint work";
   const sprintExecutionGoal = selectedSprint
@@ -364,6 +414,33 @@ function App() {
     setEditedProjectRiskNotes(projectToEdit.riskNotes);
   }
 
+  function toggleSelection(currentValues: string[], selectedValue: string) {
+    return currentValues.includes(selectedValue)
+      ? currentValues.filter((value) => value !== selectedValue)
+      : [...currentValues, selectedValue];
+  }
+
+  function populateDependentForm(memberToEdit: TeamMember) {
+    setDependentName(memberToEdit.name);
+    setDependentSurname(memberToEdit.surname);
+    setDependentEmail(memberToEdit.email);
+    setDependentPhoneNumber(memberToEdit.phoneNumber);
+    setDependentRole(memberToEdit.role);
+    setDependentHourlyWage(String(memberToEdit.hourlyWage));
+    setDependentWeeklyCapacityHours(String(memberToEdit.weeklyCapacityHours));
+    setDependentProjectIds(memberToEdit.projectIds.map(String));
+    setDependentBio(memberToEdit.bio);
+  }
+
+  function populateTeamForm(teamToEdit: Team) {
+    setTeamName(teamToEdit.name);
+    setTeamFocusArea(teamToEdit.focusArea);
+    setTeamLeadId(String(teamToEdit.leadId));
+    setTeamMemberIds(teamToEdit.memberIds.map(String));
+    setTeamProjectIds(teamToEdit.projectIds.map(String));
+    setTeamNotes(teamToEdit.notes);
+  }
+
   function loadSprintForEdit(sprintId: string) {
     const sprintToEdit = sprintRecords.find((sprintItem) => sprintItem.id === Number(sprintId));
 
@@ -390,6 +467,32 @@ function App() {
     setEditedProjectId(projectId);
     populateProjectForm(projectToEdit);
     setProjectEditorMessage("");
+  }
+
+  function loadDependentForEdit(memberId: string) {
+    const memberToEdit = teamMemberRecords.find((member) => member.id === Number(memberId));
+
+    if (!memberToEdit) {
+      return;
+    }
+
+    setDependentFormMode("edit");
+    setEditedDependentId(memberId);
+    populateDependentForm(memberToEdit);
+    setDependentEditorMessage("");
+  }
+
+  function loadTeamForEdit(teamId: string) {
+    const teamToEdit = teamRecords.find((team) => team.id === Number(teamId));
+
+    if (!teamToEdit) {
+      return;
+    }
+
+    setTeamFormMode("edit");
+    setEditedTeamId(teamId);
+    populateTeamForm(teamToEdit);
+    setTeamEditorMessage("");
   }
 
   function resetSprintForm() {
@@ -421,6 +524,31 @@ function App() {
     setEditedProjectStatus("On Track");
     setEditedProjectRiskNotes("");
     setProjectEditorMessage("");
+  }
+
+  function resetDependentForm() {
+    setDependentFormMode("create");
+    setDependentName("");
+    setDependentSurname("");
+    setDependentEmail("");
+    setDependentPhoneNumber("");
+    setDependentRole("Frontend Developer");
+    setDependentHourlyWage("45");
+    setDependentWeeklyCapacityHours("32");
+    setDependentProjectIds([String(selectedProject.id)]);
+    setDependentBio("");
+    setDependentEditorMessage("");
+  }
+
+  function resetTeamForm() {
+    setTeamFormMode("create");
+    setTeamName("");
+    setTeamFocusArea("");
+    setTeamLeadId(String(teamMemberRecords[0]?.id ?? defaultTeamMember.id));
+    setTeamMemberIds([]);
+    setTeamProjectIds([String(selectedProject.id)]);
+    setTeamNotes("");
+    setTeamEditorMessage("");
   }
 
   function handleSaveSprint(event: FormEvent<HTMLFormElement>) {
@@ -545,6 +673,18 @@ function App() {
 
     setProjectRecords(remainingProjects);
     setSprintRecords(remainingSprints);
+    setTeamMemberRecords((currentMembers) =>
+      currentMembers.map((member) => ({
+        ...member,
+        projectIds: member.projectIds.filter((projectId) => projectId !== projectToDelete.id)
+      }))
+    );
+    setTeamRecords((currentTeams) =>
+      currentTeams.map((team) => ({
+        ...team,
+        projectIds: team.projectIds.filter((projectId) => projectId !== projectToDelete.id)
+      }))
+    );
     setOpenedProjectId(null);
 
     if (nextProject && selectedProjectId === projectToDelete.id) {
@@ -650,6 +790,189 @@ function App() {
       projectFormMode === "edit"
         ? "Project updated in the demo workspace."
         : "Project created in the demo workspace."
+    );
+  }
+
+  function handleSaveDependent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setDependentEditorMessage("");
+
+    if (!isAdmin) {
+      setDependentEditorMessage("Only admin users can save employees.");
+      return;
+    }
+
+    const hourlyWage = Number(dependentHourlyWage);
+    const weeklyCapacityHours = Number(dependentWeeklyCapacityHours);
+
+    if (
+      !dependentName.trim() ||
+      !dependentSurname.trim() ||
+      !dependentEmail.trim() ||
+      !dependentPhoneNumber.trim() ||
+      !dependentRole.trim()
+    ) {
+      setDependentEditorMessage("Name, surname, email, phone, and role are required.");
+      return;
+    }
+
+    if (!Number.isFinite(hourlyWage) || hourlyWage <= 0) {
+      setDependentEditorMessage("Hourly wage must be a positive number.");
+      return;
+    }
+
+    if (!Number.isFinite(weeklyCapacityHours) || weeklyCapacityHours <= 0) {
+      setDependentEditorMessage("Weekly capacity must be a positive number.");
+      return;
+    }
+
+    const savedDependent: TeamMember = {
+      id:
+        dependentFormMode === "edit"
+          ? Number(editedDependentId)
+          : Math.max(0, ...teamMemberRecords.map((member) => member.id)) + 1,
+      name: dependentName.trim(),
+      surname: dependentSurname.trim(),
+      email: dependentEmail.trim(),
+      phoneNumber: dependentPhoneNumber.trim(),
+      role: dependentRole.trim(),
+      hourlyWage,
+      weeklyCapacityHours,
+      projectIds: dependentProjectIds.map(Number),
+      bio: dependentBio.trim() || "No profile notes added yet."
+    };
+
+    setTeamMemberRecords((currentMembers) =>
+      dependentFormMode === "edit"
+        ? currentMembers.map((member) =>
+            member.id === savedDependent.id ? savedDependent : member
+          )
+        : [savedDependent, ...currentMembers]
+    );
+
+    setEditedDependentId(String(savedDependent.id));
+    setDependentFormMode("edit");
+    setDependentEditorMessage(
+      dependentFormMode === "edit"
+        ? "Employee updated in the demo workspace."
+        : "Employee created in the demo workspace."
+    );
+  }
+
+  function handleDeleteOpenedDependent(memberToDelete: TeamMember) {
+    if (teamMemberRecords.length <= 1) {
+      window.alert("You cannot delete the last employee in the demo workspace.");
+      return;
+    }
+
+    const assignedTaskCount = tasks.filter(
+      (task) => task.assigneeId === memberToDelete.id
+    ).length;
+    const assignedTeamCount = teamRecords.filter((team) =>
+      team.memberIds.includes(memberToDelete.id)
+    ).length;
+    const confirmed = window.confirm(
+      `Delete "${memberToDelete.name} ${memberToDelete.surname}"? This removes the employee from ${memberToDelete.projectIds.length} project assignment(s), ${assignedTeamCount} team(s), and ${assignedTaskCount} sprint task assignment(s).`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    const remainingMembers = teamMemberRecords.filter((member) => member.id !== memberToDelete.id);
+    const fallbackLeadId = remainingMembers[0]?.id ?? defaultTeamMember.id;
+
+    setTeamMemberRecords(remainingMembers);
+    setTeamRecords((currentTeams) =>
+      currentTeams.map((team) => {
+        const remainingMemberIds = team.memberIds.filter(
+          (memberId) => memberId !== memberToDelete.id
+        );
+
+        return {
+          ...team,
+          leadId:
+            team.leadId === memberToDelete.id
+              ? remainingMemberIds[0] ?? fallbackLeadId
+              : team.leadId,
+          memberIds: remainingMemberIds
+        };
+      })
+    );
+    setOpenedDependentId(null);
+
+    if (editedDependentId === String(memberToDelete.id)) {
+      const nextEditableMember = remainingMembers[0];
+      setDependentFormMode(nextEditableMember ? "edit" : "create");
+      setEditedDependentId(
+        nextEditableMember ? String(nextEditableMember.id) : String(defaultTeamMember.id)
+      );
+      if (nextEditableMember) {
+        populateDependentForm(nextEditableMember);
+      }
+      setDependentEditorMessage("Employee deleted from the demo workspace.");
+    }
+
+    if (teamLeadId === String(memberToDelete.id)) {
+      setTeamLeadId(String(fallbackLeadId));
+    }
+
+    if (teamMemberIds.includes(String(memberToDelete.id))) {
+      setTeamMemberIds((currentIds) =>
+        currentIds.filter((memberId) => memberId !== String(memberToDelete.id))
+      );
+    }
+  }
+
+  function handleSaveTeam(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTeamEditorMessage("");
+
+    if (!isAdmin) {
+      setTeamEditorMessage("Only admin users can save teams.");
+      return;
+    }
+
+    if (!teamName.trim() || !teamFocusArea.trim() || !teamNotes.trim()) {
+      setTeamEditorMessage("Team name, focus area, and notes are required.");
+      return;
+    }
+
+    if (teamMemberIds.length === 0) {
+      setTeamEditorMessage("Select at least one team member.");
+      return;
+    }
+
+    const leadId = Number(teamLeadId);
+    const memberIds = Array.from(new Set([...teamMemberIds, teamLeadId])).map(Number);
+
+    const savedTeam: Team = {
+      id:
+        teamFormMode === "edit"
+          ? Number(editedTeamId)
+          : Math.max(0, ...teamRecords.map((team) => team.id)) + 1,
+      name: teamName.trim(),
+      focusArea: teamFocusArea.trim(),
+      leadId,
+      memberIds,
+      projectIds: teamProjectIds.map(Number),
+      notes: teamNotes.trim()
+    };
+
+    setTeamRecords((currentTeams) =>
+      teamFormMode === "edit"
+        ? currentTeams.map((team) => (team.id === savedTeam.id ? savedTeam : team))
+        : [savedTeam, ...currentTeams]
+    );
+
+    setEditedTeamId(String(savedTeam.id));
+    setTeamFormMode("edit");
+    setTeamMemberIds(memberIds.map(String));
+    setTeamProjectIds(savedTeam.projectIds.map(String));
+    setTeamEditorMessage(
+      teamFormMode === "edit"
+        ? "Team updated in the demo workspace."
+        : "Team created in the demo workspace."
     );
   }
 
@@ -851,7 +1174,7 @@ function App() {
               <MetricCard
                 label="Weekly capacity"
                 value={`${totalCapacity}h`}
-                helper={`${teamMembers.length} people assigned`}
+                helper={`${visibleTeamMembers.length} people assigned`}
               />
               <MetricCard
                 label="Delivery risk"
@@ -876,133 +1199,257 @@ function App() {
 
         {activeView === "dependents" && (
           <>
-            <PageHeader
-              currentProject={selectedProject}
-              eyebrow="Dependents Info"
-              title="Employee directory"
-              description="People available for project delivery, with contact data, job information, and capacity."
-            />
-
-            <section className="filter-panel" aria-label="Employee filters">
-              <div className="autocomplete-field">
-                <label htmlFor="employee-search">Search</label>
-                <input
-                  id="employee-search"
-                  type="search"
-                  value={employeeSearch}
-                  onBlur={() => setIsEmployeeAutocompleteOpen(false)}
-                  onChange={(event) => {
-                    setEmployeeSearch(event.target.value);
-                    setIsEmployeeAutocompleteOpen(true);
-                  }}
-                  onFocus={() => setIsEmployeeAutocompleteOpen(true)}
-                  placeholder="Name, email, phone"
+            {!openedDependent ? (
+              <>
+                <PageHeader
+                  currentProject={selectedProject}
+                  eyebrow="Dependents Info"
+                  title="Employee directory"
+                  description="People available for project delivery, with contact data, job information, and capacity."
                 />
 
-                {isEmployeeAutocompleteOpen && employeeSuggestions.length > 0 && (
-                  <div className="autocomplete-list" role="listbox">
-                    {employeeSuggestions.map((member) => (
-                      <button
-                        key={member.id}
-                        type="button"
-                        role="option"
-                        onMouseDown={(event) => {
-                          event.preventDefault();
-                          setEmployeeSearch(`${member.name} ${member.surname}`);
-                          setIsEmployeeAutocompleteOpen(false);
-                        }}
-                      >
+                <section className="filter-panel" aria-label="Employee filters">
+                  <div className="autocomplete-field">
+                    <label htmlFor="employee-search">Search</label>
+                    <input
+                      id="employee-search"
+                      type="search"
+                      value={employeeSearch}
+                      onBlur={() => setIsEmployeeAutocompleteOpen(false)}
+                      onChange={(event) => {
+                        setEmployeeSearch(event.target.value);
+                        setIsEmployeeAutocompleteOpen(true);
+                      }}
+                      onFocus={() => setIsEmployeeAutocompleteOpen(true)}
+                      placeholder="Name, email, phone"
+                    />
+
+                    {isEmployeeAutocompleteOpen && employeeSuggestions.length > 0 && (
+                      <div className="autocomplete-list" role="listbox">
+                        {employeeSuggestions.map((member) => (
+                          <button
+                            key={member.id}
+                            type="button"
+                            role="option"
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              setEmployeeSearch(`${member.name} ${member.surname}`);
+                              setIsEmployeeAutocompleteOpen(false);
+                            }}
+                          >
+                            <strong>
+                              {member.name} {member.surname}
+                            </strong>
+                            <span>{member.email}</span>
+                            <small>{member.phoneNumber}</small>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <label>
+                    Job
+                    <select
+                      value={employeeJobFilter}
+                      onChange={(event) => setEmployeeJobFilter(event.target.value)}
+                    >
+                      <option value="all">All jobs</option>
+                      {jobOptions.map((job) => (
+                        <option key={job} value={job}>
+                          {job}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label>
+                    Project
+                    <select
+                      value={employeeProjectFilter}
+                      onChange={(event) => setEmployeeProjectFilter(event.target.value)}
+                    >
+                      <option value="all">All projects</option>
+                      {projectRecords.map((projectItem) => (
+                        <option key={projectItem.id} value={projectItem.id}>
+                          {projectItem.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEmployeeSearch("");
+                      setIsEmployeeAutocompleteOpen(false);
+                      setEmployeeJobFilter("all");
+                      setEmployeeProjectFilter("all");
+                    }}
+                  >
+                    Reset
+                  </button>
+                </section>
+
+                <p className="result-summary">
+                  Showing {filteredTeamMembers.length} of {teamMemberRecords.length} employees.
+                </p>
+
+                <section className="table-panel" aria-label="Employee directory">
+                  <div className="table-row table-row--head">
+                    <span>Name</span>
+                    <span>Job</span>
+                    <span>Email</span>
+                    <span>Phone</span>
+                    <span>Weekly hours</span>
+                  </div>
+
+                  {filteredTeamMembers.map((member) => (
+                    <button
+                      className="table-row table-row--button"
+                      key={member.id}
+                      type="button"
+                      onClick={() => setOpenedDependentId(member.id)}
+                    >
+                      <span>
                         <strong>
                           {member.name} {member.surname}
                         </strong>
-                        <span>{member.email}</span>
-                        <small>{member.phoneNumber}</small>
-                      </button>
-                    ))}
+                        <small>{member.bio}</small>
+                      </span>
+                      <span>
+                        {member.role}
+                        <small>{member.hourlyWage} EUR/hour</small>
+                      </span>
+                      <span>{member.email}</span>
+                      <span>{member.phoneNumber}</span>
+                      <span>{member.weeklyCapacityHours}h</span>
+                    </button>
+                  ))}
+
+                  {filteredTeamMembers.length === 0 && (
+                    <div className="empty-table-state">
+                      No employees match the selected filters.
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <section className="project-detail-page" aria-label="Opened employee detail">
+                <div className="detail-action-row">
+                  <button
+                    className="back-button"
+                    type="button"
+                    onClick={() => setOpenedDependentId(null)}
+                  >
+                    &lt;- Back to dependents
+                  </button>
+
+                  {isAdmin && (
+                    <button
+                      className="delete-detail-button"
+                      type="button"
+                      onClick={() => handleDeleteOpenedDependent(openedDependent)}
+                    >
+                      Delete dependent
+                    </button>
+                  )}
+                </div>
+
+                <div className="project-detail-panel__header">
+                  <div>
+                    <p className="eyebrow">{openedDependent.role}</p>
+                    <h2>
+                      {openedDependent.name} {openedDependent.surname}
+                    </h2>
+                    <p>{openedDependent.bio}</p>
                   </div>
-                )}
-              </div>
-
-              <label>
-                Job
-                <select
-                  value={employeeJobFilter}
-                  onChange={(event) => setEmployeeJobFilter(event.target.value)}
-                >
-                  <option value="all">All jobs</option>
-                  {jobOptions.map((job) => (
-                    <option key={job} value={job}>
-                      {job}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Project
-                <select
-                  value={employeeProjectFilter}
-                  onChange={(event) => setEmployeeProjectFilter(event.target.value)}
-                >
-                  <option value="all">All projects</option>
-                  {projectRecords.map((projectItem) => (
-                    <option key={projectItem.id} value={projectItem.id}>
-                      {projectItem.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setEmployeeSearch("");
-                  setIsEmployeeAutocompleteOpen(false);
-                  setEmployeeJobFilter("all");
-                  setEmployeeProjectFilter("all");
-                }}
-              >
-                Reset
-              </button>
-            </section>
-
-            <p className="result-summary">
-              Showing {filteredTeamMembers.length} of {teamMembers.length} employees.
-            </p>
-
-            <section className="table-panel" aria-label="Employee directory">
-              <div className="table-row table-row--head">
-                <span>Name</span>
-                <span>Job</span>
-                <span>Email</span>
-                <span>Phone</span>
-                <span>Weekly hours</span>
-              </div>
-
-              {filteredTeamMembers.map((member) => (
-                <div className="table-row" key={member.id}>
-                  <span>
-                    <strong>
-                      {member.name} {member.surname}
-                    </strong>
-                    <small>{member.bio}</small>
-                  </span>
-                  <span>
-                    {member.role}
-                    <small>{member.hourlyWage} EUR/hour</small>
-                  </span>
-                  <span>{member.email}</span>
-                  <span>{member.phoneNumber}</span>
-                  <span>{member.weeklyCapacityHours}h</span>
                 </div>
-              ))}
 
-              {filteredTeamMembers.length === 0 && (
-                <div className="empty-table-state">
-                  No employees match the selected filters.
+                <div className="project-detail-grid">
+                  <article>
+                    <span>Email</span>
+                    <strong>{openedDependent.email}</strong>
+                  </article>
+                  <article>
+                    <span>Phone</span>
+                    <strong>{openedDependent.phoneNumber}</strong>
+                  </article>
+                  <article>
+                    <span>Hourly wage</span>
+                    <strong>{openedDependent.hourlyWage} EUR/hour</strong>
+                  </article>
+                  <article>
+                    <span>Weekly capacity</span>
+                    <strong>{openedDependent.weeklyCapacityHours}h</strong>
+                  </article>
                 </div>
-              )}
-            </section>
+
+                <div className="project-detail-columns">
+                  <article>
+                    <h3>Assigned projects</h3>
+                    {openedDependentProjects.length > 0 ? (
+                      <ul>
+                        {openedDependentProjects.map((projectItem) => (
+                          <li key={projectItem.id}>
+                            <strong>{projectItem.name}</strong>
+                            <span>{projectItem.clientName}</span>
+                            <p>{projectItem.status}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No project assignments.</p>
+                    )}
+                  </article>
+
+                  <article>
+                    <h3>Assigned teams</h3>
+                    {openedDependentTeams.length > 0 ? (
+                      <ul>
+                        {openedDependentTeams.map((team) => (
+                          <li key={team.id}>
+                            <strong>{team.name}</strong>
+                            <span>{team.focusArea}</span>
+                            <p>{team.leadId === openedDependent.id ? "Team lead" : "Team member"}</p>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p>No team assignments.</p>
+                    )}
+                  </article>
+
+                  <article>
+                    <h3>Sprint task assignments</h3>
+                    {openedDependentTasks.length > 0 ? (
+                      <ul>
+                        {openedDependentTasks.map((task) => {
+                          const taskProject = projectRecords.find(
+                            (projectItem) => projectItem.id === task.projectId
+                          );
+                          const taskSprint = sprintRecords.find(
+                            (sprintItem) => sprintItem.id === task.sprintId
+                          );
+
+                          return (
+                            <li key={task.id}>
+                              <strong>{task.title}</strong>
+                              <span>{taskSprint?.name ?? "Unknown sprint"}</span>
+                              <p>
+                                {taskProject?.name ?? "Unknown project"} / {task.status}
+                              </p>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : (
+                      <p>No sprint task assignments.</p>
+                    )}
+                  </article>
+                </div>
+              </section>
+            )}
           </>
         )}
 
@@ -1430,9 +1877,29 @@ function App() {
                   <strong>Project Editor</strong>
                   <span>Edit project identity, budget, status, and risk</span>
                 </button>
-                <button className="admin-edit-tab" type="button" disabled>
-                  <strong>Team Edits</strong>
-                  <span>Coming next</span>
+                <button
+                  className={
+                    adminEditSection === "teams"
+                      ? "admin-edit-tab admin-edit-tab--active"
+                      : "admin-edit-tab"
+                  }
+                  type="button"
+                  onClick={() => setAdminEditSection("teams")}
+                >
+                  <strong>Team Editor</strong>
+                  <span>Create teams, assign leads, members, and projects</span>
+                </button>
+                <button
+                  className={
+                    adminEditSection === "dependents"
+                      ? "admin-edit-tab admin-edit-tab--active"
+                      : "admin-edit-tab"
+                  }
+                  type="button"
+                  onClick={() => setAdminEditSection("dependents")}
+                >
+                  <strong>Dependents Editor</strong>
+                  <span>Create employees and edit their assignments</span>
                 </button>
               </aside>
 
@@ -1781,6 +2248,284 @@ function App() {
                   </form>
                 </section>
               )}
+
+              {adminEditSection === "teams" && (
+                <section className="sprint-creator" aria-label="Team editor">
+                  <div className="sprint-creator__intro">
+                    <div>
+                      <p className="eyebrow">Team manager</p>
+                      <h2>{teamFormMode === "create" ? "Create team" : "Edit team"}</h2>
+                      <p>
+                        Create or update squads by choosing a lead, members, assigned projects,
+                        focus area, and operational notes.
+                      </p>
+                    </div>
+                    <span>Admin editable</span>
+                  </div>
+
+                  <div className="form-mode-toggle" aria-label="Team form mode">
+                    <button
+                      className={teamFormMode === "create" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={resetTeamForm}
+                    >
+                      Create new
+                    </button>
+                    <button
+                      className={teamFormMode === "edit" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={() => loadTeamForEdit(editedTeamId)}
+                    >
+                      Edit existing
+                    </button>
+                  </div>
+
+                  <form className="sprint-creator-form" onSubmit={handleSaveTeam}>
+                    {teamFormMode === "edit" && (
+                      <label>
+                        Team to edit
+                        <select
+                          value={editedTeamId}
+                          onChange={(event) => loadTeamForEdit(event.target.value)}
+                        >
+                          {teamRecords.map((team) => (
+                            <option key={team.id} value={team.id}>
+                              {team.name}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    <label>
+                      Team name
+                      <input value={teamName} onChange={(event) => setTeamName(event.target.value)} />
+                    </label>
+
+                    <label>
+                      Focus area
+                      <input
+                        value={teamFocusArea}
+                        onChange={(event) => setTeamFocusArea(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Team lead
+                      <select value={teamLeadId} onChange={(event) => setTeamLeadId(event.target.value)}>
+                        {teamMemberRecords.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.name} {member.surname} - {member.role}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+
+                    <fieldset className="checkbox-group">
+                      <legend>Assigned members</legend>
+                      {teamMemberRecords.map((member) => (
+                        <label key={member.id}>
+                          <input
+                            checked={teamMemberIds.includes(String(member.id))}
+                            type="checkbox"
+                            onChange={() =>
+                              setTeamMemberIds((currentIds) =>
+                                toggleSelection(currentIds, String(member.id))
+                              )
+                            }
+                          />
+                          <span>
+                            {member.name} {member.surname} / {member.role}
+                          </span>
+                        </label>
+                      ))}
+                    </fieldset>
+
+                    <fieldset className="checkbox-group">
+                      <legend>Assigned projects</legend>
+                      {projectRecords.map((projectItem) => (
+                        <label key={projectItem.id}>
+                          <input
+                            checked={teamProjectIds.includes(String(projectItem.id))}
+                            type="checkbox"
+                            onChange={() =>
+                              setTeamProjectIds((currentIds) =>
+                                toggleSelection(currentIds, String(projectItem.id))
+                              )
+                            }
+                          />
+                          <span>{projectItem.name}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+
+                    <label className="sprint-creator-form__wide">
+                      Team notes
+                      <textarea
+                        value={teamNotes}
+                        onChange={(event) => setTeamNotes(event.target.value)}
+                        rows={4}
+                      />
+                    </label>
+
+                    <div className="sprint-creator-actions">
+                      <p>{teamEditorMessage}</p>
+                      <button type="submit">
+                        {teamFormMode === "create" ? "Create team" : "Save team changes"}
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
+
+              {adminEditSection === "dependents" && (
+                <section className="sprint-creator" aria-label="Dependents editor">
+                  <div className="sprint-creator__intro">
+                    <div>
+                      <p className="eyebrow">Dependents manager</p>
+                      <h2>
+                        {dependentFormMode === "create" ? "Create employee" : "Edit employee"}
+                      </h2>
+                      <p>
+                        Create or update employee contact data, job details, capacity, project
+                        assignments, and profile notes.
+                      </p>
+                    </div>
+                    <span>Admin editable</span>
+                  </div>
+
+                  <div className="form-mode-toggle" aria-label="Dependent form mode">
+                    <button
+                      className={
+                        dependentFormMode === "create" ? "form-mode-toggle__active" : ""
+                      }
+                      type="button"
+                      onClick={resetDependentForm}
+                    >
+                      Create new
+                    </button>
+                    <button
+                      className={dependentFormMode === "edit" ? "form-mode-toggle__active" : ""}
+                      type="button"
+                      onClick={() => loadDependentForEdit(editedDependentId)}
+                    >
+                      Edit existing
+                    </button>
+                  </div>
+
+                  <form className="sprint-creator-form" onSubmit={handleSaveDependent}>
+                    {dependentFormMode === "edit" && (
+                      <label>
+                        Employee to edit
+                        <select
+                          value={editedDependentId}
+                          onChange={(event) => loadDependentForEdit(event.target.value)}
+                        >
+                          {teamMemberRecords.map((member) => (
+                            <option key={member.id} value={member.id}>
+                              {member.name} {member.surname} - {member.email}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+
+                    <label>
+                      Name
+                      <input value={dependentName} onChange={(event) => setDependentName(event.target.value)} />
+                    </label>
+
+                    <label>
+                      Surname
+                      <input
+                        value={dependentSurname}
+                        onChange={(event) => setDependentSurname(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Email
+                      <input
+                        type="email"
+                        value={dependentEmail}
+                        onChange={(event) => setDependentEmail(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Phone number
+                      <input
+                        value={dependentPhoneNumber}
+                        onChange={(event) => setDependentPhoneNumber(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Job role
+                      <input
+                        value={dependentRole}
+                        onChange={(event) => setDependentRole(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Hourly wage
+                      <input
+                        min="1"
+                        type="number"
+                        value={dependentHourlyWage}
+                        onChange={(event) => setDependentHourlyWage(event.target.value)}
+                      />
+                    </label>
+
+                    <label>
+                      Weekly capacity
+                      <input
+                        min="1"
+                        type="number"
+                        value={dependentWeeklyCapacityHours}
+                        onChange={(event) => setDependentWeeklyCapacityHours(event.target.value)}
+                      />
+                    </label>
+
+                    <fieldset className="checkbox-group">
+                      <legend>Assigned projects</legend>
+                      {projectRecords.map((projectItem) => (
+                        <label key={projectItem.id}>
+                          <input
+                            checked={dependentProjectIds.includes(String(projectItem.id))}
+                            type="checkbox"
+                            onChange={() =>
+                              setDependentProjectIds((currentIds) =>
+                                toggleSelection(currentIds, String(projectItem.id))
+                              )
+                            }
+                          />
+                          <span>{projectItem.name}</span>
+                        </label>
+                      ))}
+                    </fieldset>
+
+                    <label className="sprint-creator-form__wide">
+                      Bio / notes
+                      <textarea
+                        value={dependentBio}
+                        onChange={(event) => setDependentBio(event.target.value)}
+                        rows={4}
+                      />
+                    </label>
+
+                    <div className="sprint-creator-actions">
+                      <p>{dependentEditorMessage}</p>
+                      <button type="submit">
+                        {dependentFormMode === "create"
+                          ? "Create employee"
+                          : "Save employee changes"}
+                      </button>
+                    </div>
+                  </form>
+                </section>
+              )}
             </section>
           </>
         )}
@@ -1970,7 +2715,7 @@ function App() {
                   <p>Double click a sprint in the backlog to open the full sprint detail page.</p>
                 </section>
 
-                <TaskBoard tasks={selectedSprintTasks} teamMembers={teamMembers} />
+                <TaskBoard tasks={selectedSprintTasks} teamMembers={teamMemberRecords} />
               </div>
             </section>
           </>
