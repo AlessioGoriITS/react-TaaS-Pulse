@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from .models import (
     Employee,
+    Importance,
     Job,
     Project,
     ProjectMembership,
@@ -22,6 +23,7 @@ PROJECT_STATUS_FROM_API = {
 SPRINT_STATUS_FROM_API = {label: value for value, label in Sprint.Status.choices}
 TASK_STATUS_FROM_API = {label: value for value, label in Task.Status.choices}
 TASK_PRIORITY_FROM_API = {label: value for value, label in Task.Priority.choices}
+IMPORTANCE_FROM_API = {label: value for value, label in Importance.choices}
 
 
 class CurrentUserSerializer(serializers.ModelSerializer):
@@ -75,6 +77,7 @@ class ProjectSerializer(serializers.ModelSerializer):
     usedHours = serializers.IntegerField(source="used_hours", min_value=0)
     riskNotes = serializers.CharField(source="risk_notes", allow_blank=True, required=False)
     status = serializers.ChoiceField(choices=list(PROJECT_STATUS_FROM_API))
+    importance = serializers.ChoiceField(choices=list(IMPORTANCE_FROM_API), required=False)
 
     class Meta:
         model = Project
@@ -88,6 +91,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             "usedHours",
             "deadline",
             "status",
+            "importance",
             "riskNotes",
         ]
         read_only_fields = ["id", "description"]
@@ -103,6 +107,7 @@ class ProjectSerializer(serializers.ModelSerializer):
             if instance.risk_level == Project.Risk.MEDIUM
             else "On Track"
         )
+        data["importance"] = instance.get_importance_display()
         return data
 
     def validate(self, attrs):
@@ -120,6 +125,8 @@ class ProjectSerializer(serializers.ModelSerializer):
             status, risk = PROJECT_STATUS_FROM_API[api_status]
             validated_data["status"] = status
             validated_data["risk_level"] = risk
+        if "importance" in validated_data:
+            validated_data["importance"] = IMPORTANCE_FROM_API[validated_data["importance"]]
         return validated_data
 
     def create(self, validated_data):
@@ -138,6 +145,7 @@ class SprintSerializer(serializers.ModelSerializer):
     startDate = serializers.DateField(source="start_date")
     endDate = serializers.DateField(source="end_date")
     status = serializers.ChoiceField(choices=list(SPRINT_STATUS_FROM_API))
+    importance = serializers.ChoiceField(choices=list(IMPORTANCE_FROM_API), required=False)
 
     class Meta:
         model = Sprint
@@ -150,6 +158,7 @@ class SprintSerializer(serializers.ModelSerializer):
             "startDate",
             "endDate",
             "status",
+            "importance",
         ]
         read_only_fields = ["id", "goal"]
 
@@ -167,11 +176,14 @@ class SprintSerializer(serializers.ModelSerializer):
         data["goal"] = instance.goal
         data["longDescription"] = instance.goal
         data["status"] = instance.get_status_display()
+        data["importance"] = instance.get_importance_display()
         return data
 
     def _translate(self, validated_data):
         if "status" in validated_data:
             validated_data["status"] = SPRINT_STATUS_FROM_API[validated_data["status"]]
+        if "importance" in validated_data:
+            validated_data["importance"] = IMPORTANCE_FROM_API[validated_data["importance"]]
         return validated_data
 
     def create(self, validated_data):

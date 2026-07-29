@@ -49,12 +49,13 @@ class ProjectAdmin(admin.ModelAdmin):
         "name",
         "client_name",
         "status",
+        "importance",
         "risk_level",
         "budget_hours",
         "used_hours",
         "deadline",
     ]
-    list_filter = ["status", "risk_level", "deadline"]
+    list_filter = ["status", "importance", "risk_level", "deadline"]
     search_fields = ["name", "client_name", "description"]
     date_hierarchy = "deadline"
     readonly_fields = ["created_at", "updated_at"]
@@ -76,8 +77,8 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(Sprint)
 class SprintAdmin(admin.ModelAdmin):
-    list_display = ["name", "project", "status", "start_date", "end_date"]
-    list_filter = ["status", "project"]
+    list_display = ["name", "project", "status", "importance", "start_date", "end_date"]
+    list_filter = ["status", "importance", "project"]
     search_fields = ["name", "goal", "project__name"]
     autocomplete_fields = ["project"]
     date_hierarchy = "start_date"

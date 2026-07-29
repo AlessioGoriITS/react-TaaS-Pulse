@@ -12,6 +12,13 @@ class TimestampedModel(models.Model):
         abstract = True
 
 
+class Importance(models.TextChoices):
+    LOW = "low", "Low"
+    MEDIUM = "medium", "Medium"
+    HIGH = "high", "High"
+    CRITICAL = "critical", "Critical"
+
+
 class Job(TimestampedModel):
     title = models.CharField(max_length=120, unique=True)
     hourly_wage = models.DecimalField(max_digits=8, decimal_places=2)
@@ -87,6 +94,11 @@ class Project(TimestampedModel):
     used_hours = models.PositiveIntegerField(default=0)
     start_date = models.DateField(null=True, blank=True)
     deadline = models.DateField()
+    importance = models.CharField(
+        max_length=10,
+        choices=Importance.choices,
+        default=Importance.MEDIUM,
+    )
     risk_level = models.CharField(max_length=10, choices=Risk.choices, default=Risk.LOW)
     risk_notes = models.TextField(blank=True)
     members = models.ManyToManyField(
@@ -195,6 +207,11 @@ class Sprint(TimestampedModel):
     start_date = models.DateField()
     end_date = models.DateField()
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PLANNED)
+    importance = models.CharField(
+        max_length=10,
+        choices=Importance.choices,
+        default=Importance.MEDIUM,
+    )
 
     class Meta:
         ordering = ["-start_date", "name"]

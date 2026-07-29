@@ -95,6 +95,7 @@ class ApiTestCase(APITestCase):
                 "usedHours": 10,
                 "deadline": "2026-12-01",
                 "status": "At Risk",
+                "importance": "Critical",
                 "riskNotes": "Pending discovery.",
             },
             format="json",
@@ -102,6 +103,15 @@ class ApiTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         project = Project.objects.get(pk=response.data["item"]["id"])
         self.assertEqual(project.risk_level, Project.Risk.MEDIUM)
+        self.assertEqual(project.importance, "critical")
+        self.assertEqual(
+            next(
+                item
+                for item in response.data["workspace"]["projects"]
+                if item["id"] == project.id
+            )["importance"],
+            "Critical",
+        )
         self.assertIn("workspace", response.data)
 
     def test_project_rejects_used_hours_above_budget(self):
@@ -135,6 +145,7 @@ class ApiTestCase(APITestCase):
                 "startDate": "2026-09-10",
                 "endDate": "2026-09-01",
                 "status": "Planned",
+                "importance": "High",
             },
             format="json",
         )

@@ -452,7 +452,7 @@ select {
   gap: 8px;
 }
 
-.project-status span,
+.project-status > span:not(.importance-tag),
 .project-status small,
 .metric-card p,
 .metric-card span,
@@ -2058,6 +2058,70 @@ select {
   text-align: right;
 }
 
+.importance-tag,
+.project-access-card .importance-tag {
+  --importance-color: #3267d6;
+  --importance-background: #edf4ff;
+  --importance-border: #bfd3fb;
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--importance-border);
+  border-radius: 999px;
+  background: var(--importance-background);
+  color: var(--importance-color);
+  font-size: 0.75rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.importance-tag > span,
+.project-access-card .importance-tag > span {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+  color: inherit;
+}
+
+.importance-tag--low,
+.project-access-card .importance-tag--low {
+  --importance-color: #287a55;
+  --importance-background: #edf9f3;
+  --importance-border: #b8e4cf;
+}
+
+.importance-tag--medium,
+.project-access-card .importance-tag--medium {
+  --importance-color: #3267d6;
+  --importance-background: #edf4ff;
+  --importance-border: #bfd3fb;
+}
+
+.importance-tag--high,
+.project-access-card .importance-tag--high {
+  --importance-color: #a45208;
+  --importance-background: #fff5e7;
+  --importance-border: #f3cea0;
+}
+
+.importance-tag--critical,
+.project-access-card .importance-tag--critical {
+  --importance-color: #b42335;
+  --importance-background: #fff0f2;
+  --importance-border: #f3bac2;
+}
+
+.importance-tag--compact {
+  padding: 4px 8px;
+  font-size: 0.68rem;
+}
+
 .project-access-card--locked {
   cursor: not-allowed;
   filter: grayscale(1);
@@ -2205,7 +2269,7 @@ select {
   background: #fbfcff;
 }
 
-.project-detail-grid span {
+.project-detail-grid article > span:not(.importance-tag) {
   display: block;
   margin-bottom: 8px;
   color: #687789;

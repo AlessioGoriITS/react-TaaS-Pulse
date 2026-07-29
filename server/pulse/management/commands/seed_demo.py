@@ -7,6 +7,7 @@ from django.db import transaction
 
 from pulse.models import (
     Employee,
+    Importance,
     Job,
     Project,
     ProjectMembership,
@@ -171,6 +172,7 @@ PROJECTS = [
         "start": date(2026, 5, 4),
         "deadline": date(2026, 9, 18),
         "risk": Project.Risk.MEDIUM,
+        "importance": Importance.HIGH,
         "notes": "Payment provider integration needs an early technical spike.",
         "members": [
             "ari.chen@example.com",
@@ -190,6 +192,7 @@ PROJECTS = [
         "start": date(2026, 6, 1),
         "deadline": date(2026, 10, 30),
         "risk": Project.Risk.LOW,
+        "importance": Importance.MEDIUM,
         "notes": "No material risk recorded.",
         "members": [
             "marco.esposito@example.com",
@@ -208,6 +211,7 @@ PROJECTS = [
         "start": date(2026, 3, 16),
         "deadline": date(2026, 8, 28),
         "risk": Project.Risk.HIGH,
+        "importance": Importance.CRITICAL,
         "notes": "Offline synchronisation is behind plan on older Android devices.",
         "members": [
             "sofia.martin@example.com",
@@ -227,6 +231,7 @@ PROJECTS = [
         "start": date(2026, 4, 20),
         "deadline": date(2026, 11, 13),
         "risk": Project.Risk.MEDIUM,
+        "importance": Importance.HIGH,
         "notes": "Privacy review may affect the reminder notification workflow.",
         "members": [
             "ari.chen@example.com",
@@ -246,6 +251,7 @@ PROJECTS = [
         "start": date(2026, 7, 6),
         "deadline": date(2027, 2, 26),
         "risk": Project.Risk.LOW,
+        "importance": Importance.MEDIUM,
         "notes": "Data contracts are being validated with the metering provider.",
         "members": [
             "marco.esposito@example.com",
@@ -265,6 +271,7 @@ PROJECTS = [
         "start": date(2026, 2, 9),
         "deadline": date(2026, 9, 4),
         "risk": Project.Risk.MEDIUM,
+        "importance": Importance.HIGH,
         "notes": "Content migration volume is higher than originally estimated.",
         "members": [
             "chiara.gallo@example.com",
@@ -284,6 +291,7 @@ PROJECTS = [
         "start": date(2026, 1, 12),
         "deadline": date(2026, 12, 18),
         "risk": Project.Risk.HIGH,
+        "importance": Importance.CRITICAL,
         "notes": "Paused while the client replaces the warehouse scanner supplier.",
         "members": [
             "marta.costa@example.com",
@@ -303,6 +311,7 @@ PROJECTS = [
         "start": date(2025, 10, 6),
         "deadline": date(2026, 5, 29),
         "risk": Project.Risk.LOW,
+        "importance": Importance.LOW,
         "notes": "Production handover completed; warranty support remains active.",
         "members": [
             "sofia.martin@example.com",
@@ -439,6 +448,7 @@ class Command(BaseCommand):
                     "used_hours": spec["used"],
                     "start_date": spec["start"],
                     "deadline": spec["deadline"],
+                    "importance": spec["importance"],
                     "risk_level": spec["risk"],
                     "risk_notes": spec["notes"],
                 },
@@ -497,6 +507,16 @@ class Command(BaseCommand):
                             if project.status == Project.Status.PAUSED
                             and sprint_index == 1
                             else SPRINT_STATUSES[sprint_index]
+                        ),
+                        "importance": (
+                            Importance.CRITICAL
+                            if spec["importance"] == Importance.CRITICAL
+                            and sprint_index == 1
+                            else Importance.HIGH
+                            if sprint_index == 1
+                            else Importance.MEDIUM
+                            if sprint_index == 2
+                            else Importance.LOW
                         ),
                     },
                 )

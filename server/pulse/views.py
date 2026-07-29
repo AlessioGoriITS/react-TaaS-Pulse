@@ -84,9 +84,9 @@ class ScopedModelViewSet(viewsets.ModelViewSet):
 
 class ProjectViewSet(ScopedModelViewSet):
     serializer_class = ProjectSerializer
-    filterset_fields = ["status", "risk_level", "deadline"]
+    filterset_fields = ["status", "risk_level", "importance", "deadline"]
     search_fields = ["name", "client_name", "description"]
-    ordering_fields = ["name", "deadline", "budget_hours", "used_hours"]
+    ordering_fields = ["name", "deadline", "importance", "budget_hours", "used_hours"]
 
     def get_queryset(self):
         queryset = Project.objects.all()
@@ -97,9 +97,9 @@ class ProjectViewSet(ScopedModelViewSet):
 
 class SprintViewSet(ScopedModelViewSet):
     serializer_class = SprintSerializer
-    filterset_fields = ["project", "status", "start_date", "end_date"]
+    filterset_fields = ["project", "status", "importance", "start_date", "end_date"]
     search_fields = ["name", "goal"]
-    ordering_fields = ["name", "start_date", "end_date"]
+    ordering_fields = ["name", "importance", "start_date", "end_date"]
 
     def get_queryset(self):
         queryset = Sprint.objects.select_related("project")

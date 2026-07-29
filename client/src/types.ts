@@ -1,6 +1,7 @@
 export type ProjectStatus = "On Track" | "At Risk" | "Blocked";
 
 export type TaskStatus = "Todo" | "In Progress" | "Review" | "Done";
+export type Importance = "Low" | "Medium" | "High" | "Critical";
 
 export type ViewId =
   | "dashboard"
@@ -54,6 +55,7 @@ export type Sprint = {
   startDate: string;
   endDate: string;
   status: "Planned" | "Active" | "Completed" | "Blocked";
+  importance: Importance;
   capacityHours?: number;
   focusArea?: string;
   definitionOfDone?: string;
@@ -71,6 +73,7 @@ export type Project = {
   usedHours: number;
   deadline: string;
   status: ProjectStatus;
+  importance: Importance;
   riskNotes: string;
 };
 

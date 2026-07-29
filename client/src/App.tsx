@@ -32,7 +32,16 @@ import {
   getDeliveryRisk,
   getTaskCompletionPercent
 } from "./lib/projectMetrics";
-import type { AuthUser, Project, Sprint, Task, Team, TeamMember, ViewId } from "./types";
+import type {
+  AuthUser,
+  Importance,
+  Project,
+  Sprint,
+  Task,
+  Team,
+  TeamMember,
+  ViewId
+} from "./types";
 
 const defaultProject = initialProjects[0];
 const defaultSprint = initialSprints[0];
@@ -113,6 +122,7 @@ function App() {
   const [newSprintStartDate, setNewSprintStartDate] = useState("");
   const [newSprintEndDate, setNewSprintEndDate] = useState("");
   const [newSprintStatus, setNewSprintStatus] = useState<Sprint["status"]>("Planned");
+  const [newSprintImportance, setNewSprintImportance] = useState<Importance>("Medium");
   const [newSprintCapacityHours, setNewSprintCapacityHours] = useState("80");
   const [newSprintFocus, setNewSprintFocus] = useState("Feature delivery");
   const [newSprintDefinitionOfDone, setNewSprintDefinitionOfDone] =
@@ -141,6 +151,9 @@ function App() {
   const [editedProjectDeadline, setEditedProjectDeadline] = useState(defaultProject.deadline);
   const [editedProjectStatus, setEditedProjectStatus] = useState<Project["status"]>(
     defaultProject.status
+  );
+  const [editedProjectImportance, setEditedProjectImportance] = useState<Importance>(
+    defaultProject.importance
   );
   const [editedProjectRiskNotes, setEditedProjectRiskNotes] = useState(defaultProject.riskNotes);
   const [projectEditorMessage, setProjectEditorMessage] = useState("");
@@ -739,6 +752,7 @@ function App() {
     setNewSprintStartDate(sprintToEdit.startDate);
     setNewSprintEndDate(sprintToEdit.endDate);
     setNewSprintStatus(sprintToEdit.status);
+    setNewSprintImportance(sprintToEdit.importance);
     setNewSprintCapacityHours(String(sprintToEdit.capacityHours ?? 80));
     setNewSprintFocus(sprintToEdit.focusArea ?? "Feature delivery");
     setNewSprintDefinitionOfDone(sprintToEdit.definitionOfDone ?? defaultDefinitionOfDone);
@@ -755,6 +769,7 @@ function App() {
     setEditedProjectUsedHours(String(projectToEdit.usedHours));
     setEditedProjectDeadline(projectToEdit.deadline);
     setEditedProjectStatus(projectToEdit.status);
+    setEditedProjectImportance(projectToEdit.importance);
     setEditedProjectRiskNotes(projectToEdit.riskNotes);
   }
 
@@ -848,6 +863,7 @@ function App() {
     setNewSprintStartDate("");
     setNewSprintEndDate("");
     setNewSprintStatus("Planned");
+    setNewSprintImportance("Medium");
     setNewSprintCapacityHours("80");
     setNewSprintFocus("Feature delivery");
     setNewSprintDefinitionOfDone(defaultDefinitionOfDone);
@@ -866,6 +882,7 @@ function App() {
     setEditedProjectUsedHours("0");
     setEditedProjectDeadline("");
     setEditedProjectStatus("On Track");
+    setEditedProjectImportance("Medium");
     setEditedProjectRiskNotes("");
     setProjectEditorMessage("");
   }
@@ -934,6 +951,7 @@ function App() {
       startDate: newSprintStartDate,
       endDate: newSprintEndDate,
       status: newSprintStatus,
+      importance: newSprintImportance,
       capacityHours,
       focusArea: newSprintFocus,
       definitionOfDone: newSprintDefinitionOfDone.trim(),
@@ -1134,6 +1152,7 @@ function App() {
       usedHours,
       deadline: editedProjectDeadline,
       status: editedProjectStatus,
+      importance: editedProjectImportance,
       riskNotes: editedProjectRiskNotes.trim() || "No risk notes recorded."
     };
 
@@ -2158,6 +2177,7 @@ function App() {
                           <span>
                             <span className="eyebrow">{projectItem.clientName}</span>
                             <strong>{projectItem.name}</strong>
+                            <ImportanceTag importance={projectItem.importance} />
                             <span>{projectItem.description}</span>
                           </span>
                           <span className="project-access-card__meta">
@@ -2909,6 +2929,7 @@ function App() {
                         <span>
                           <span className="eyebrow">{projectItem.clientName}</span>
                           <strong>{projectItem.name}</strong>
+                          <ImportanceTag importance={projectItem.importance} />
                           <span>{projectItem.description}</span>
                         </span>
                         <span className="project-access-card__meta">
@@ -2967,6 +2988,10 @@ function App() {
                   <article>
                     <span>Status</span>
                     <strong>{openedProject.status}</strong>
+                  </article>
+                  <article>
+                    <span>Importance</span>
+                    <ImportanceTag importance={openedProject.importance} />
                   </article>
                   <article>
                     <span>Deadline</span>
@@ -3078,6 +3103,7 @@ function App() {
                         <span>
                           <span className="eyebrow">{sprintProject?.clientName ?? "No client"}</span>
                           <strong>{sprintItem.name}</strong>
+                          <ImportanceTag importance={sprintItem.importance} />
                           <span>{sprintItem.goal}</span>
                         </span>
                         <span className="project-access-card__meta">
@@ -3137,6 +3163,10 @@ function App() {
                   <article>
                     <span>Status</span>
                     <strong>{openedSprint.status}</strong>
+                  </article>
+                  <article>
+                    <span>Importance</span>
+                    <ImportanceTag importance={openedSprint.importance} />
                   </article>
                   <article>
                     <span>Start</span>
@@ -3375,6 +3405,21 @@ function App() {
                     </label>
 
                     <label>
+                      Importance
+                      <select
+                        value={newSprintImportance}
+                        onChange={(event) =>
+                          setNewSprintImportance(event.target.value as Importance)
+                        }
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
+                      </select>
+                    </label>
+
+                    <label>
                       Start date
                       <input
                         type="date"
@@ -3555,6 +3600,21 @@ function App() {
                         <option value="On Track">On Track</option>
                         <option value="At Risk">At Risk</option>
                         <option value="Blocked">Blocked</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Importance
+                      <select
+                        value={editedProjectImportance}
+                        onChange={(event) =>
+                          setEditedProjectImportance(event.target.value as Importance)
+                        }
+                      >
+                        <option value="Low">Low</option>
+                        <option value="Medium">Medium</option>
+                        <option value="High">High</option>
+                        <option value="Critical">Critical</option>
                       </select>
                     </label>
 
@@ -4003,6 +4063,7 @@ function App() {
                       >
                         <span>{sprintItem.status}</span>
                         <strong>{sprintItem.name}</strong>
+                        <ImportanceTag importance={sprintItem.importance} compact />
                         <small>{sprintItem.goal}</small>
                         <div className="mini-progress" aria-label={`${sprintProgress}% complete`}>
                           <span style={{ width: `${sprintProgress}%` }} />
@@ -4303,6 +4364,29 @@ function InsightStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ImportanceTag({
+  importance,
+  compact = false
+}: {
+  importance: Importance;
+  compact?: boolean;
+}) {
+  return (
+    <span
+      className={[
+        "importance-tag",
+        `importance-tag--${importance.toLowerCase()}`,
+        compact ? "importance-tag--compact" : ""
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      <span aria-hidden="true" />
+      {importance}
+    </span>
+  );
+}
+
 function DashboardIcon({ name }: { name: DashboardIconName }) {
   const paths: Record<DashboardIconName, ReactNode> = {
     projects: (
@@ -4385,6 +4469,7 @@ function PageHeader({ currentProject, eyebrow, title, description }: PageHeaderP
       <div className="project-status">
         <span>Current project</span>
         <strong>{currentProject.name}</strong>
+        <ImportanceTag importance={currentProject.importance} compact />
         <small>{currentProject.clientName} · Due {formatDate(currentProject.deadline)}</small>
       </div>
     </header>

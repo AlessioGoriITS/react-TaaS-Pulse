@@ -12,6 +12,7 @@ export const projects: Project[] = [
     usedHours: 236,
     deadline: "2026-08-21",
     status: "At Risk",
+    importance: "High",
     riskNotes: "Budget usage is moving faster than task completion."
   },
   {
@@ -25,6 +26,7 @@ export const projects: Project[] = [
     usedHours: 82,
     deadline: "2026-09-12",
     status: "On Track",
+    importance: "Medium",
     riskNotes: "Discovery is complete and implementation is moving steadily."
   },
   {
@@ -38,6 +40,7 @@ export const projects: Project[] = [
     usedHours: 312,
     deadline: "2026-07-30",
     status: "Blocked",
+    importance: "Critical",
     riskNotes: "External API access is delayed by the client security review."
   }
 ];
@@ -495,7 +498,8 @@ export const sprints: Sprint[] = [
       "This sprint is focused on making the Customer Portal Refresh stable enough for a client-facing walkthrough. The team is tightening dashboard metrics, reviewing empty states, validating risk calculations, and preparing reliable demo data.",
     startDate: "2026-07-06",
     endDate: "2026-07-17",
-    status: "Active"
+    status: "Active",
+    importance: "High"
   },
   {
     id: 2,
@@ -506,7 +510,8 @@ export const sprints: Sprint[] = [
       "This sprint starts the Internal Billing Console by validating the core invoice review flow, early budget summary screens, and the minimum dataset needed for finance operators to trust the tool.",
     startDate: "2026-07-20",
     endDate: "2026-07-31",
-    status: "Planned"
+    status: "Planned",
+    importance: "Medium"
   },
   {
     id: 3,
@@ -517,7 +522,8 @@ export const sprints: Sprint[] = [
       "This sprint is a recovery pass for the Partner Support Portal. The team is trying to unblock the external API, document fallback routing, and reduce delivery risk before the deadline gets too close.",
     startDate: "2026-07-13",
     endDate: "2026-07-24",
-    status: "Blocked"
+    status: "Blocked",
+    importance: "Critical"
   }
 ];
 
