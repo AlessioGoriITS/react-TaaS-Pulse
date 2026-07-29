@@ -79,7 +79,10 @@ function App() {
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [dashboardInsightId, setDashboardInsightId] =
     useState<DashboardInsightId | null>(null);
+  const [dashboardInsightHistory, setDashboardInsightHistory] =
+    useState<DashboardInsightId[]>([]);
   const isDashboardDrawerOpen = dashboardInsightId !== null;
+  const detailOriginScrollRef = useRef(0);
   const [loginEmail, setLoginEmail] = useState("admin@taaspulse.local");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -668,7 +671,7 @@ function App() {
 
     function handleDrawerKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setDashboardInsightId(null);
+        closeDashboardInsight();
         return;
       }
 
@@ -1339,12 +1342,67 @@ function App() {
     setActiveView(viewId);
   }
 
+  function openDashboardInsight(insightId: DashboardInsightId) {
+    if (dashboardInsightId) {
+      setDashboardInsightHistory((currentHistory) => [
+        ...currentHistory,
+        dashboardInsightId
+      ]);
+    }
+
+    setDashboardInsightId(insightId);
+  }
+
+  function closeDashboardInsight() {
+    setDashboardInsightId(null);
+    setDashboardInsightHistory([]);
+  }
+
+  function goBackDashboardInsight() {
+    const previousInsight =
+      dashboardInsightHistory[dashboardInsightHistory.length - 1];
+
+    if (!previousInsight) {
+      closeDashboardInsight();
+      return;
+    }
+
+    setDashboardInsightHistory((currentHistory) => currentHistory.slice(0, -1));
+    setDashboardInsightId(previousInsight);
+  }
+
+  function goToDashboardInsightHistory(historyIndex: number) {
+    const targetInsight = dashboardInsightHistory[historyIndex];
+
+    if (!targetInsight) {
+      return;
+    }
+
+    setDashboardInsightHistory((currentHistory) =>
+      currentHistory.slice(0, historyIndex)
+    );
+    setDashboardInsightId(targetInsight);
+  }
+
+  function rememberDetailOrigin() {
+    detailOriginScrollRef.current = window.scrollY;
+  }
+
+  function returnFromDetail(closeDetail: () => void) {
+    closeDetail();
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: detailOriginScrollRef.current, behavior: "auto" });
+    });
+  }
+
   function canOpenProject(projectId: number) {
     return accessibleProjectIds.includes(projectId);
   }
 
-  function getDashboardInsightMeta() {
-    switch (dashboardInsightId) {
+  function getDashboardInsightMeta(
+    insightId: DashboardInsightId | null = dashboardInsightId
+  ) {
+    switch (insightId) {
       case "portfolio-projects":
         return {
           eyebrow: "Portfolio",
@@ -1420,8 +1478,8 @@ function App() {
           description: dashboardCurrentSprint.goal
         };
       default:
-        if (dashboardInsightId?.startsWith("person:")) {
-          const memberId = Number(dashboardInsightId.split(":")[1]);
+        if (insightId?.startsWith("person:")) {
+          const memberId = Number(insightId.split(":")[1]);
           const member = teamMemberRecords.find((person) => person.id === memberId);
 
           return {
@@ -1459,9 +1517,10 @@ function App() {
                 key={projectItem.id}
                 type="button"
                 onClick={() => {
+                  detailOriginScrollRef.current = 0;
                   setSelectedProjectId(projectItem.id);
                   setOpenedProjectId(projectItem.id);
-                  setDashboardInsightId(null);
+                  closeDashboardInsight();
                   setActiveView("projects");
                 }}
               >
@@ -1536,7 +1595,7 @@ function App() {
             className="insight-primary-action"
             type="button"
             onClick={() => {
-              setDashboardInsightId(null);
+              closeDashboardInsight();
               handleNavigation("tasks");
             }}
           >
@@ -1583,9 +1642,10 @@ function App() {
               key={projectItem.id}
               type="button"
               onClick={() => {
+                detailOriginScrollRef.current = 0;
                 setSelectedProjectId(projectItem.id);
                 setOpenedProjectId(projectItem.id);
-                setDashboardInsightId(null);
+                closeDashboardInsight();
                 setActiveView("projects");
               }}
             >
@@ -1645,7 +1705,7 @@ function App() {
                   className="insight-list-row"
                   key={member.id}
                   type="button"
-                  onClick={() => setDashboardInsightId(`person:${member.id}`)}
+                  onClick={() => openDashboardInsight(`person:${member.id}`)}
                 >
                   <span>
                     <strong>{member.name} {member.surname}</strong>
@@ -1699,7 +1759,7 @@ function App() {
             onClick={() => {
               setSelectedProjectId(dashboardCurrentSprint.projectId);
               setSelectedSprintId(dashboardCurrentSprint.id);
-              setDashboardInsightId(null);
+              closeDashboardInsight();
               setActiveView("tasks");
             }}
           >
@@ -2005,7 +2065,7 @@ function App() {
                     label="Weekly load"
                     percent={employeeLoad}
                     helper={`${employeePlannedHours}/${loggedEmployee.weeklyCapacityHours}h`}
-                    onClick={() => setDashboardInsightId("employee-load")}
+                    onClick={() => openDashboardInsight("employee-load")}
                   />
                 </div>
 
@@ -2013,7 +2073,7 @@ function App() {
                   <button
                     type="button"
                     title="Open tasks marked as high priority"
-                    onClick={() => setDashboardInsightId("employee-priority")}
+                    onClick={() => openDashboardInsight("employee-priority")}
                   >
                     <DashboardIcon name="risk" />
                     <span>High priority</span>
@@ -2023,7 +2083,7 @@ function App() {
                   <button
                     type="button"
                     title="Share of your assigned tasks already completed"
-                    onClick={() => setDashboardInsightId("employee-completion")}
+                    onClick={() => openDashboardInsight("employee-completion")}
                   >
                     <DashboardIcon name="progress" />
                     <span>Completion</span>
@@ -2033,7 +2093,7 @@ function App() {
                   <button
                     type="button"
                     title="Teams available to your account"
-                    onClick={() => setDashboardInsightId("employee-teams")}
+                    onClick={() => openDashboardInsight("employee-teams")}
                   >
                     <DashboardIcon name="capacity" />
                     <span>Teams</span>
@@ -2049,7 +2109,7 @@ function App() {
                     className={`dashboard-focus-card dashboard-focus-card--${item.tone}`}
                     key={item.title}
                     type="button"
-                    onClick={() => setDashboardInsightId(item.id)}
+                    onClick={() => openDashboardInsight(item.id)}
                   >
                     <span className="dashboard-focus-card__top">
                       <span>{item.title}</span>
@@ -2134,7 +2194,7 @@ function App() {
                           className="dashboard-list-item dashboard-list-item--interactive"
                           key={task.id}
                           type="button"
-                          onClick={() => setDashboardInsightId("employee-tasks")}
+                          onClick={() => openDashboardInsight("employee-tasks")}
                         >
                           <strong>{task.title}</strong>
                           <span>
@@ -2165,7 +2225,7 @@ function App() {
                       className="dashboard-list-item dashboard-list-item--interactive"
                       key={member.id}
                       type="button"
-                      onClick={() => setDashboardInsightId(`person:${member.id}`)}
+                      onClick={() => openDashboardInsight(`person:${member.id}`)}
                     >
                       <strong>
                         {member.name} {member.surname}
@@ -2199,7 +2259,7 @@ function App() {
                           type="button"
                           onClick={() => {
                             setDashboardProjectId(sprintItem.projectId);
-                            setDashboardInsightId("focused-sprint");
+                            openDashboardInsight("focused-sprint");
                           }}
                         >
                           <strong>{sprintItem.name}</strong>
@@ -2259,7 +2319,7 @@ function App() {
                     label="Portfolio budget"
                     percent={portfolioBudgetUsage}
                     helper={`${portfolioUsedHours}/${portfolioBudgetHours}h`}
-                    onClick={() => setDashboardInsightId("portfolio-budget")}
+                    onClick={() => openDashboardInsight("portfolio-budget")}
                   />
                 </div>
 
@@ -2267,7 +2327,7 @@ function App() {
                   <button
                     type="button"
                     title="Projects currently at risk or blocked"
-                    onClick={() => setDashboardInsightId("portfolio-risk")}
+                    onClick={() => openDashboardInsight("portfolio-risk")}
                   >
                     <DashboardIcon name="risk" />
                     <span>Risk projects</span>
@@ -2277,7 +2337,7 @@ function App() {
                   <button
                     type="button"
                     title="Share of all workspace tasks already completed"
-                    onClick={() => setDashboardInsightId("portfolio-completion")}
+                    onClick={() => openDashboardInsight("portfolio-completion")}
                   >
                     <DashboardIcon name="progress" />
                     <span>Completion</span>
@@ -2287,7 +2347,7 @@ function App() {
                   <button
                     type="button"
                     title="Tasks that have not reached Done"
-                    onClick={() => setDashboardInsightId("portfolio-workload")}
+                    onClick={() => openDashboardInsight("portfolio-workload")}
                   >
                     <DashboardIcon name="workload" />
                     <span>Open workload</span>
@@ -2303,7 +2363,7 @@ function App() {
                     className={`dashboard-focus-card dashboard-focus-card--${item.tone}`}
                     key={item.title}
                     type="button"
-                    onClick={() => setDashboardInsightId(item.id)}
+                    onClick={() => openDashboardInsight(item.id)}
                   >
                     <span className="dashboard-focus-card__top">
                       <span>{item.title}</span>
@@ -2362,6 +2422,7 @@ function App() {
                   className="dashboard-text-action"
                   type="button"
                   onClick={() => {
+                    detailOriginScrollRef.current = 0;
                     setSelectedProjectId(dashboardProject.id);
                     setOpenedProjectId(dashboardProject.id);
                     setActiveView("projects");
@@ -2391,7 +2452,7 @@ function App() {
                 <button
                   className="dashboard-text-action"
                   type="button"
-                  onClick={() => setDashboardInsightId("focused-sprint")}
+                  onClick={() => openDashboardInsight("focused-sprint")}
                 >
                   Explore sprint details <span aria-hidden="true">→</span>
                 </button>
@@ -2412,7 +2473,7 @@ function App() {
                         className="dashboard-list-item dashboard-list-item--interactive"
                         key={`${item.title}-${item.meta}`}
                         type="button"
-                        onClick={() => setDashboardInsightId("portfolio-workload")}
+                        onClick={() => openDashboardInsight("portfolio-workload")}
                       >
                         <strong>{item.title}</strong>
                         <span>{item.meta}</span>
@@ -2448,11 +2509,11 @@ function App() {
                         key={loadItem.member.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => setDashboardInsightId(`person:${loadItem.member.id}`)}
+                        onClick={() => openDashboardInsight(`person:${loadItem.member.id}`)}
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
-                            setDashboardInsightId(`person:${loadItem.member.id}`);
+                            openDashboardInsight(`person:${loadItem.member.id}`);
                           }
                         }}
                       >
@@ -2595,7 +2656,10 @@ function App() {
                       className="table-row table-row--button"
                       key={member.id}
                       type="button"
-                      onClick={() => setOpenedDependentId(member.id)}
+                      onClick={() => {
+                        rememberDetailOrigin();
+                        setOpenedDependentId(member.id);
+                      }}
                     >
                       <span>
                         <strong>
@@ -2623,13 +2687,15 @@ function App() {
             ) : (
               <section className="project-detail-page" aria-label="Opened employee detail">
                 <div className="detail-action-row">
-                  <button
-                    className="back-button"
-                    type="button"
-                    onClick={() => setOpenedDependentId(null)}
-                  >
-                    ← Back to people
-                  </button>
+                  <DetailNavigation
+                    sectionLabel="People"
+                    currentLabel={`${openedDependent.name} ${openedDependent.surname}`}
+                    onBack={() => returnFromDetail(() => setOpenedDependentId(null))}
+                    onDashboard={() => {
+                      setOpenedDependentId(null);
+                      handleNavigation("dashboard");
+                    }}
+                  />
 
                   {isAdmin && (
                     <button
@@ -2834,6 +2900,7 @@ function App() {
                         type="button"
                         onClick={() => {
                           if (isAccessible) {
+                            rememberDetailOrigin();
                             setSelectedProjectId(projectItem.id);
                             setOpenedProjectId(projectItem.id);
                           }
@@ -2861,13 +2928,15 @@ function App() {
             ) : (
               <section className="project-detail-page" aria-label="Opened project detail">
                 <div className="detail-action-row">
-                  <button
-                    className="back-button"
-                    type="button"
-                    onClick={() => setOpenedProjectId(null)}
-                  >
-                    &lt;- Back to projects
-                  </button>
+                  <DetailNavigation
+                    sectionLabel="Projects"
+                    currentLabel={openedProject.name}
+                    onBack={() => returnFromDetail(() => setOpenedProjectId(null))}
+                    onDashboard={() => {
+                      setOpenedProjectId(null);
+                      handleNavigation("dashboard");
+                    }}
+                  />
 
                   {isAdmin && (
                     <button
@@ -3000,6 +3069,7 @@ function App() {
                         type="button"
                         onClick={() => {
                           if (isAccessible) {
+                            rememberDetailOrigin();
                             setSelectedProjectId(sprintItem.projectId);
                             setOpenedSprintId(sprintItem.id);
                           }
@@ -3030,13 +3100,15 @@ function App() {
             ) : (
               <section className="project-detail-page" aria-label="Opened sprint detail">
                 <div className="detail-action-row">
-                  <button
-                    className="back-button"
-                    type="button"
-                    onClick={() => setOpenedSprintId(null)}
-                  >
-                    &lt;- Back to sprints
-                  </button>
+                  <DetailNavigation
+                    sectionLabel="Sprints"
+                    currentLabel={openedSprint.name}
+                    onBack={() => returnFromDetail(() => setOpenedSprintId(null))}
+                    onDashboard={() => {
+                      setOpenedSprintId(null);
+                      handleNavigation("dashboard");
+                    }}
+                  />
 
                   {isAdmin && (
                     <button
@@ -4026,7 +4098,7 @@ function App() {
             role="presentation"
             onMouseDown={(event) => {
               if (event.target === event.currentTarget) {
-                setDashboardInsightId(null);
+                closeDashboardInsight();
               }
             }}
           >
@@ -4038,19 +4110,56 @@ function App() {
               aria-labelledby="dashboard-drawer-title"
             >
               <header className="dashboard-drawer__header">
-                <div>
+                <div className="dashboard-drawer__topbar">
+                  <button
+                    className="dashboard-drawer__back"
+                    autoFocus
+                    type="button"
+                    onClick={goBackDashboardInsight}
+                  >
+                    <span aria-hidden="true">←</span>
+                    {dashboardInsightHistory.length > 0
+                      ? `Back to ${
+                          getDashboardInsightMeta(
+                            dashboardInsightHistory[
+                              dashboardInsightHistory.length - 1
+                            ]
+                          ).title
+                        }`
+                      : "Back to dashboard"}
+                  </button>
+                  <button
+                    className="dashboard-drawer__close"
+                    type="button"
+                    aria-label="Close details"
+                    onClick={closeDashboardInsight}
+                  >
+                    ×
+                  </button>
+                </div>
+                <nav className="dashboard-drawer__breadcrumb" aria-label="Breadcrumb">
+                  <button type="button" onClick={closeDashboardInsight}>
+                    Dashboard
+                  </button>
+                  <span aria-hidden="true">/</span>
+                  {dashboardInsightHistory.map((insightId, historyIndex) => (
+                    <span className="dashboard-drawer__breadcrumb-level" key={`${insightId}-${historyIndex}`}>
+                      <button
+                        type="button"
+                        onClick={() => goToDashboardInsightHistory(historyIndex)}
+                      >
+                        {getDashboardInsightMeta(insightId).title}
+                      </button>
+                      <span aria-hidden="true">/</span>
+                    </span>
+                  ))}
+                  <span aria-current="page">{getDashboardInsightMeta().title}</span>
+                </nav>
+                <div className="dashboard-drawer__title">
                   <p className="eyebrow">{getDashboardInsightMeta().eyebrow}</p>
                   <h2 id="dashboard-drawer-title">{getDashboardInsightMeta().title}</h2>
                   <p>{getDashboardInsightMeta().description}</p>
                 </div>
-                <button
-                  autoFocus
-                  type="button"
-                  aria-label="Close details"
-                  onClick={() => setDashboardInsightId(null)}
-                >
-                  ×
-                </button>
               </header>
               <div className="dashboard-drawer__body">{renderDashboardInsightContent()}</div>
             </aside>
@@ -4072,6 +4181,38 @@ type PageHeaderProps = {
   title: string;
   description: string;
 };
+
+function DetailNavigation({
+  sectionLabel,
+  currentLabel,
+  onBack,
+  onDashboard
+}: {
+  sectionLabel: string;
+  currentLabel: string;
+  onBack: () => void;
+  onDashboard: () => void;
+}) {
+  return (
+    <div className="detail-navigation">
+      <button className="back-button" type="button" onClick={onBack}>
+        <span aria-hidden="true">←</span>
+        Back to {sectionLabel.toLowerCase()}
+      </button>
+      <nav className="detail-breadcrumb" aria-label="Breadcrumb">
+        <button type="button" onClick={onDashboard}>
+          Dashboard
+        </button>
+        <span aria-hidden="true">/</span>
+        <button type="button" onClick={onBack}>
+          {sectionLabel}
+        </button>
+        <span aria-hidden="true">/</span>
+        <span aria-current="page">{currentLabel}</span>
+      </nav>
+    </div>
+  );
+}
 
 type DashboardIconName =
   | "projects"

@@ -9,7 +9,12 @@
     "dev": "npm --prefix client run dev",
     "build": "npm --prefix client run build",
     "preview": "npm --prefix client run preview",
-    "db:reset": "python server/scripts/reset_db.py",
-    "server:dev": "python server/auth_server.py"
+    "server:dev": "python server/manage.py runserver 127.0.0.1:3000",
+    "db:migrate": "python server/manage.py migrate",
+    "db:seed": "python server/manage.py seed_demo",
+    "db:reset": "python server/manage.py migrate && python server/manage.py flush --no-input && python server/manage.py seed_demo",
+    "test:backend": "python server/manage.py test",
+    "check:backend": "python server/manage.py check",
+    "check:migrations": "python server/manage.py makemigrations --check --dry-run"
   }
 }
