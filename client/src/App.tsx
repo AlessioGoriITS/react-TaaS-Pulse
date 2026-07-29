@@ -1,4 +1,11 @@
-import { FormEvent, useEffect, useState } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode
+} from "react";
 import { getCurrentUser, login, logout } from "./api/auth";
 import {
   deleteEmployee,
@@ -34,18 +41,35 @@ const defaultTeam = initialTeams[0];
 const defaultDefinitionOfDone = "Code reviewed, tested, documented, and ready for demo.";
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
-  { id: "dashboard", label: "Dashboard", helper: "Project health" },
-  { id: "dependents", label: "Dependents Info", helper: "People directory" },
-  { id: "team", label: "Team Info", helper: "Squads and capacity" },
+  { id: "dashboard", label: "Overview", helper: "Portfolio health" },
   { id: "projects", label: "Projects", helper: "Client delivery" },
   { id: "sprints", label: "Sprints", helper: "Planning cycles" },
-  { id: "tasks", label: "Task Board", helper: "Sprint execution" },
-  { id: "admin", label: "Admin Edits", helper: "Create and edit data" }
+  { id: "tasks", label: "Tasks", helper: "Sprint execution" },
+  { id: "dependents", label: "People", helper: "Team directory" },
+  { id: "team", label: "Teams", helper: "Capacity and roles" },
+  { id: "admin", label: "Data management", helper: "Workspace settings" }
 ];
 
 type AuthStatus = "checking" | "authenticated" | "unauthenticated";
+type DashboardInsightId =
+  | "portfolio-projects"
+  | "portfolio-tasks"
+  | "portfolio-capacity"
+  | "portfolio-budget"
+  | "portfolio-risk"
+  | "portfolio-completion"
+  | "portfolio-workload"
+  | "employee-projects"
+  | "employee-tasks"
+  | "employee-load"
+  | "employee-priority"
+  | "employee-completion"
+  | "employee-teams"
+  | "focused-sprint"
+  | `person:${number}`;
 
 function App() {
+  const dashboardDrawerRef = useRef<HTMLElement>(null);
   const [activeView, setActiveView] = useState<ViewId>("dashboard");
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProject.id);
   const [dashboardProjectId, setDashboardProjectId] = useState(defaultProject.id);
@@ -53,6 +77,9 @@ function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [workspaceError, setWorkspaceError] = useState("");
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+  const [dashboardInsightId, setDashboardInsightId] =
+    useState<DashboardInsightId | null>(null);
+  const isDashboardDrawerOpen = dashboardInsightId !== null;
   const [loginEmail, setLoginEmail] = useState("admin@taaspulse.local");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
@@ -65,6 +92,7 @@ function App() {
   const [teamMemberRecords, setTeamMemberRecords] =
     useState<TeamMember[]>(initialTeamMembers);
   const [teamRecords, setTeamRecords] = useState<Team[]>(initialTeams);
+  const [selectedTeamId, setSelectedTeamId] = useState(defaultTeam.id);
   const [projectRecords, setProjectRecords] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [projectSearch, setProjectSearch] = useState("");
@@ -146,6 +174,8 @@ function App() {
   const [teamEditorMessage, setTeamEditorMessage] = useState("");
 
   const isAdmin = authUser?.role === "admin";
+  const activeNavigationItem =
+    navigationItems.find((item) => item.id === activeView) ?? navigationItems[0];
   const loggedEmployee = authUser?.employeeId
     ? teamMemberRecords.find((member) => member.id === authUser.employeeId)
     : undefined;
@@ -170,7 +200,7 @@ function App() {
     : selectedProjectTasks;
   const visibleTeam =
     isAdmin || !loggedEmployee
-      ? teamRecords[0]
+      ? teamRecords.find((team) => team.id === selectedTeamId) ?? teamRecords[0]
       : teamRecords.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teamRecords[0];
   const visibleTeamMembers = teamMemberRecords.filter((member) =>
     visibleTeam.memberIds.includes(member.id)
@@ -400,12 +430,22 @@ function App() {
     (total, member) => total + member.weeklyCapacityHours,
     0
   );
+  const portfolioPlannedHours = portfolioOpenTasks.reduce(
+    (total, task) => total + task.estimateHours,
+    0
+  );
   const riskLabel =
     atRiskProjectCount > 0 || portfolioBudgetUsage > 75
       ? "Immediate action"
       : portfolioOpenTasks.length > portfolioDoneTasks.length
         ? "Watch closely"
         : "Portfolio healthy";
+  const portfolioRiskTone =
+    riskLabel === "Immediate action"
+      ? "warning"
+      : riskLabel === "Portfolio healthy"
+        ? "positive"
+        : "neutral";
   const projectHealthItems = [
     { label: "Budget", value: `${dashboardBudgetUsage}% used` },
     { label: "Progress", value: `${dashboardTaskCompletion}% complete` },
@@ -414,19 +454,37 @@ function App() {
   ];
   const dashboardFocusItems = [
     {
+      id: "portfolio-projects" as const,
       title: "Active projects",
       value: String(projectRecords.length),
-      helper: `${atRiskProjectCount} need attention`
+      helper: `${atRiskProjectCount} need attention`,
+      icon: "projects" as const,
+      tone: atRiskProjectCount > 0 ? "warning" : "positive",
+      progress:
+        projectRecords.length > 0
+          ? Math.round(((projectRecords.length - atRiskProjectCount) / projectRecords.length) * 100)
+          : 0
     },
     {
+      id: "portfolio-tasks" as const,
       title: "Open work",
       value: String(portfolioOpenTasks.length),
-      helper: `${portfolioCompletion}% portfolio task completion`
+      helper: `${portfolioCompletion}% portfolio task completion`,
+      icon: "tasks" as const,
+      tone: "brand",
+      progress: portfolioCompletion
     },
     {
+      id: "portfolio-capacity" as const,
       title: "Total capacity",
       value: `${portfolioCapacity}h`,
-      helper: `${teamMemberRecords.length} people in the workspace`
+      helper: `${teamMemberRecords.length} people in the workspace`,
+      icon: "capacity" as const,
+      tone: "neutral",
+      progress: Math.min(
+        Math.round((portfolioPlannedHours / Math.max(portfolioCapacity, 1)) * 100),
+        100
+      )
     }
   ];
   const topTeamLoads = dashboardProjectTeamMembers.map((member) => {
@@ -492,21 +550,35 @@ function App() {
         : "All assigned work is clear";
   const employeeFocusItems = [
     {
+      id: "employee-projects" as const,
       title: "My projects",
       value: String(employeeProjects.length),
-      helper: employeeNextProject ? `Next deadline: ${employeeNextProject.deadline}` : "No assigned project"
+      helper: employeeNextProject
+        ? `Next deadline: ${formatDate(employeeNextProject.deadline)}`
+        : "No assigned project",
+      icon: "projects" as const,
+      tone: "brand",
+      progress: employeeProjects.length > 0 ? 100 : 0
     },
     {
+      id: "employee-tasks" as const,
       title: "My open tasks",
       value: String(employeeOpenTasks.length),
-      helper: `${employeeCompletion}% of your tasks complete`
+      helper: `${employeeCompletion}% of your tasks complete`,
+      icon: "tasks" as const,
+      tone: employeeHighPriorityTasks.length > 0 ? "warning" : "positive",
+      progress: employeeCompletion
     },
     {
+      id: "employee-load" as const,
       title: "Weekly load",
       value: `${employeeLoad}%`,
       helper: loggedEmployee
         ? `${employeePlannedHours}h planned / ${loggedEmployee.weeklyCapacityHours}h capacity`
-        : "No employee profile linked"
+        : "No employee profile linked",
+      icon: "capacity" as const,
+      tone: employeeLoad > 90 ? "warning" : "neutral",
+      progress: employeeLoad
     }
   ];
   const employeeImportantTasks = [
@@ -584,6 +656,52 @@ function App() {
         );
       });
   }, [authUser]);
+
+  useEffect(() => {
+    if (!isDashboardDrawerOpen) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    const previouslyFocusedElement = document.activeElement as HTMLElement | null;
+    document.body.style.overflow = "hidden";
+
+    function handleDrawerKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setDashboardInsightId(null);
+        return;
+      }
+
+      if (event.key === "Tab") {
+        const focusableElements = dashboardDrawerRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (!focusableElements || focusableElements.length === 0) {
+          return;
+        }
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (event.shiftKey && document.activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+        } else if (!event.shiftKey && document.activeElement === lastElement) {
+          event.preventDefault();
+          firstElement.focus();
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleDrawerKeyDown);
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleDrawerKeyDown);
+      previouslyFocusedElement?.focus();
+    };
+  }, [isDashboardDrawerOpen]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1225,13 +1343,426 @@ function App() {
     return accessibleProjectIds.includes(projectId);
   }
 
+  function getDashboardInsightMeta() {
+    switch (dashboardInsightId) {
+      case "portfolio-projects":
+        return {
+          eyebrow: "Portfolio",
+          title: "Project health",
+          description: "Status, budget, deadlines, and open work across every project."
+        };
+      case "portfolio-tasks":
+      case "portfolio-workload":
+        return {
+          eyebrow: "Workload",
+          title: "Open work",
+          description: "Current task distribution and the work that needs attention."
+        };
+      case "portfolio-capacity":
+        return {
+          eyebrow: "Capacity",
+          title: "Workspace capacity",
+          description: "Weekly availability across the people in this workspace."
+        };
+      case "portfolio-budget":
+        return {
+          eyebrow: "Budget",
+          title: "Budget allocation",
+          description: "Used and remaining hours for each active project."
+        };
+      case "portfolio-risk":
+        return {
+          eyebrow: "Delivery risk",
+          title: "Projects needing attention",
+          description: "Blocked and at-risk delivery with the reason behind each status."
+        };
+      case "portfolio-completion":
+        return {
+          eyebrow: "Progress",
+          title: "Task completion",
+          description: "A complete breakdown of task status across the portfolio."
+        };
+      case "employee-projects":
+        return {
+          eyebrow: "My work",
+          title: "Assigned projects",
+          description: "Projects connected to your profile and their current delivery status."
+        };
+      case "employee-tasks":
+      case "employee-priority":
+        return {
+          eyebrow: "My work",
+          title: "Assigned tasks",
+          description: "Your open tasks, priorities, estimates, and current progress."
+        };
+      case "employee-load":
+        return {
+          eyebrow: "Capacity",
+          title: "Weekly workload",
+          description: "How your planned work compares with your available weekly hours."
+        };
+      case "employee-completion":
+        return {
+          eyebrow: "Progress",
+          title: "My completion",
+          description: "Completed and remaining work connected to your profile."
+        };
+      case "employee-teams":
+        return {
+          eyebrow: "Collaboration",
+          title: "My teams",
+          description: "Your teams, colleagues, and delivery focus."
+        };
+      case "focused-sprint":
+        return {
+          eyebrow: "Sprint",
+          title: dashboardCurrentSprint.name,
+          description: dashboardCurrentSprint.goal
+        };
+      default:
+        if (dashboardInsightId?.startsWith("person:")) {
+          const memberId = Number(dashboardInsightId.split(":")[1]);
+          const member = teamMemberRecords.find((person) => person.id === memberId);
+
+          return {
+            eyebrow: "Person",
+            title: member ? `${member.name} ${member.surname}` : "Team member",
+            description: "Profile, assignments, and active work."
+          };
+        }
+
+        return {
+          eyebrow: "Person",
+          title: "Team member",
+          description: "Profile, assignments, and active work."
+        };
+    }
+  }
+
+  function renderDashboardInsightContent(): ReactNode {
+    const projectInsightItems =
+      dashboardInsightId === "employee-projects" ? employeeProjects : projectRecords;
+
+    if (
+      dashboardInsightId === "portfolio-projects" ||
+      dashboardInsightId === "employee-projects"
+    ) {
+      return (
+        <div className="insight-list">
+          {projectInsightItems.map((projectItem) => {
+            const projectTasks = tasks.filter((task) => task.projectId === projectItem.id);
+            const openTasks = projectTasks.filter((task) => task.status !== "Done").length;
+
+            return (
+              <button
+                className="insight-list-row"
+                key={projectItem.id}
+                type="button"
+                onClick={() => {
+                  setSelectedProjectId(projectItem.id);
+                  setOpenedProjectId(projectItem.id);
+                  setDashboardInsightId(null);
+                  setActiveView("projects");
+                }}
+              >
+                <span>
+                  <strong>{projectItem.name}</strong>
+                  <small>{projectItem.clientName}</small>
+                </span>
+                <span>
+                  <strong>{projectItem.status}</strong>
+                  <small>{openTasks} open tasks</small>
+                </span>
+                <span aria-hidden="true">→</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (
+      dashboardInsightId === "portfolio-tasks" ||
+      dashboardInsightId === "portfolio-workload" ||
+      dashboardInsightId === "employee-tasks" ||
+      dashboardInsightId === "employee-priority" ||
+      dashboardInsightId === "employee-load" ||
+      dashboardInsightId === "employee-completion"
+    ) {
+      const insightTasks = dashboardInsightId.startsWith("employee") ? employeeTasks : tasks;
+      const visibleInsightTasks =
+        dashboardInsightId === "employee-priority"
+          ? insightTasks.filter((task) => task.priority === "High" && task.status !== "Done")
+          : insightTasks.filter((task) => task.status !== "Done");
+      const completedTasks = insightTasks.filter((task) => task.status === "Done");
+      const plannedHours = visibleInsightTasks.reduce(
+        (total, task) => total + task.estimateHours,
+        0
+      );
+
+      return (
+        <>
+          <div className="insight-stat-grid">
+            <InsightStat label="Open" value={String(visibleInsightTasks.length)} />
+            <InsightStat label="Completed" value={String(completedTasks.length)} />
+            <InsightStat label="Planned" value={`${plannedHours}h`} />
+          </div>
+          <div className="insight-list">
+            {visibleInsightTasks.slice(0, 10).map((task) => {
+              const taskProject = projectRecords.find(
+                (projectItem) => projectItem.id === task.projectId
+              );
+
+              return (
+                <div className="insight-list-row insight-list-row--static" key={task.id}>
+                  <span>
+                    <strong>{task.title}</strong>
+                    <small>{taskProject?.name ?? "Unknown project"}</small>
+                  </span>
+                  <span>
+                    <strong>{task.priority}</strong>
+                    <small>
+                      {task.status} · {task.estimateHours}h
+                    </small>
+                  </span>
+                </div>
+              );
+            })}
+            {visibleInsightTasks.length === 0 && (
+              <p className="insight-empty-state">There is no open work in this view.</p>
+            )}
+          </div>
+          <button
+            className="insight-primary-action"
+            type="button"
+            onClick={() => {
+              setDashboardInsightId(null);
+              handleNavigation("tasks");
+            }}
+          >
+            Open task board <span aria-hidden="true">→</span>
+          </button>
+        </>
+      );
+    }
+
+    if (dashboardInsightId === "portfolio-budget") {
+      return (
+        <div className="insight-list">
+          {projectRecords.map((projectItem) => {
+            const usage = getBudgetUsagePercent(projectItem);
+
+            return (
+              <div className="insight-progress-row" key={projectItem.id}>
+                <div>
+                  <strong>{projectItem.name}</strong>
+                  <span>
+                    {projectItem.usedHours}/{projectItem.budgetHours}h · {usage}% used
+                  </span>
+                </div>
+                <div className="dashboard-progress">
+                  <span style={{ width: `${usage}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (dashboardInsightId === "portfolio-risk") {
+      const riskProjects = projectRecords.filter(
+        (projectItem) => projectItem.status !== "On Track"
+      );
+
+      return (
+        <div className="insight-list">
+          {riskProjects.map((projectItem) => (
+            <button
+              className="insight-risk-row"
+              key={projectItem.id}
+              type="button"
+              onClick={() => {
+                setSelectedProjectId(projectItem.id);
+                setOpenedProjectId(projectItem.id);
+                setDashboardInsightId(null);
+                setActiveView("projects");
+              }}
+            >
+              <span>{projectItem.status}</span>
+              <strong>{projectItem.name}</strong>
+              <span className="insight-risk-copy">{projectItem.riskNotes}</span>
+              <small>Due {formatDate(projectItem.deadline)} · Open project →</small>
+            </button>
+          ))}
+          {riskProjects.length === 0 && (
+            <p className="insight-empty-state">No project currently needs attention.</p>
+          )}
+        </div>
+      );
+    }
+
+    if (dashboardInsightId === "portfolio-completion") {
+      return (
+        <div className="insight-status-breakdown">
+          {(["Todo", "In Progress", "Review", "Done"] as const).map((status) => {
+            const count = tasks.filter((task) => task.status === status).length;
+            const percent = tasks.length > 0 ? Math.round((count / tasks.length) * 100) : 0;
+
+            return (
+              <div className="insight-progress-row" key={status}>
+                <div>
+                  <strong>{status}</strong>
+                  <span>{count} tasks · {percent}%</span>
+                </div>
+                <div className="dashboard-progress">
+                  <span style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (dashboardInsightId === "portfolio-capacity") {
+      return (
+        <>
+          <div className="insight-stat-grid">
+            <InsightStat label="People" value={String(teamMemberRecords.length)} />
+            <InsightStat label="Weekly capacity" value={`${portfolioCapacity}h`} />
+            <InsightStat label="Planned work" value={`${portfolioPlannedHours}h`} />
+          </div>
+          <div className="insight-list">
+            {[...teamMemberRecords]
+              .sort(
+                (firstMember, secondMember) =>
+                  secondMember.weeklyCapacityHours - firstMember.weeklyCapacityHours
+              )
+              .slice(0, 10)
+              .map((member) => (
+                <button
+                  className="insight-list-row"
+                  key={member.id}
+                  type="button"
+                  onClick={() => setDashboardInsightId(`person:${member.id}`)}
+                >
+                  <span>
+                    <strong>{member.name} {member.surname}</strong>
+                    <small>{member.role}</small>
+                  </span>
+                  <span>
+                    <strong>{member.weeklyCapacityHours}h</strong>
+                    <small>Weekly capacity</small>
+                  </span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              ))}
+          </div>
+        </>
+      );
+    }
+
+    if (dashboardInsightId === "employee-teams") {
+      return (
+        <div className="insight-list">
+          {employeeTeams.map((team) => (
+            <div className="insight-risk-row" key={team.id}>
+              <span>{team.memberIds.length} people</span>
+              <strong>{team.name}</strong>
+              <p>{team.focusArea}</p>
+              <small>{team.notes}</small>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (dashboardInsightId === "focused-sprint") {
+      return (
+        <>
+          <div className="insight-stat-grid">
+            <InsightStat label="Status" value={dashboardCurrentSprint.status} />
+            <InsightStat label="Completion" value={`${dashboardCurrentSprintCompletion}%`} />
+            <InsightStat label="Tasks" value={String(dashboardCurrentSprintTasks.length)} />
+          </div>
+          <div className="insight-detail-copy">
+            <strong>
+              {formatDate(dashboardCurrentSprint.startDate)} –{" "}
+              {formatDate(dashboardCurrentSprint.endDate)}
+            </strong>
+            <p>{dashboardCurrentSprint.longDescription ?? dashboardCurrentSprint.goal}</p>
+          </div>
+          <button
+            className="insight-primary-action"
+            type="button"
+            onClick={() => {
+              setSelectedProjectId(dashboardCurrentSprint.projectId);
+              setSelectedSprintId(dashboardCurrentSprint.id);
+              setDashboardInsightId(null);
+              setActiveView("tasks");
+            }}
+          >
+            Explore sprint work <span aria-hidden="true">→</span>
+          </button>
+        </>
+      );
+    }
+
+    if (dashboardInsightId?.startsWith("person:")) {
+      const memberId = Number(dashboardInsightId.split(":")[1]);
+      const member = teamMemberRecords.find((person) => person.id === memberId);
+
+      if (!member) {
+        return <p className="insight-empty-state">This profile is no longer available.</p>;
+      }
+
+      const memberProjects = projectRecords.filter((projectItem) =>
+        member.projectIds.includes(projectItem.id)
+      );
+      const memberTasks = tasks.filter((task) => task.assigneeId === member.id);
+
+      return (
+        <>
+          <div className="insight-person">
+            <span>{member.name.charAt(0)}{member.surname.charAt(0)}</span>
+            <div>
+              <h3>{member.name} {member.surname}</h3>
+              <p>{member.role}</p>
+            </div>
+          </div>
+          <div className="insight-contact-grid">
+            <a href={`mailto:${member.email}`}>{member.email}</a>
+            <a href={`tel:${member.phoneNumber}`}>{member.phoneNumber}</a>
+          </div>
+          <p className="insight-profile-copy">{member.bio}</p>
+          <div className="insight-stat-grid">
+            <InsightStat label="Projects" value={String(memberProjects.length)} />
+            <InsightStat
+              label="Open tasks"
+              value={String(memberTasks.filter((task) => task.status !== "Done").length)}
+            />
+            <InsightStat label="Capacity" value={`${member.weeklyCapacityHours}h`} />
+          </div>
+        </>
+      );
+    }
+
+    return null;
+  }
+
   if (authStatus === "checking") {
     return (
       <main className="login-screen">
-        <section className="login-card">
+        <section className="login-card session-skeleton" aria-label="Loading workspace">
           <p className="eyebrow">TaaS Pulse</p>
           <h1>Checking session</h1>
           <p>Preparing your workspace access.</p>
+          <div aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
         </section>
       </main>
     );
@@ -1241,12 +1772,15 @@ function App() {
     return (
       <main className="login-screen">
         <section className="login-card" aria-labelledby="login-title">
-          <div>
-            <p className="eyebrow">Customer Portal</p>
-            <h1 id="login-title">Sign in to TaaS Pulse</h1>
+          <div className="login-card__intro">
+            <div className="login-brand" aria-label="TaaS Pulse">
+              <span>TP</span>
+              <strong>TaaS Pulse</strong>
+            </div>
+            <p className="eyebrow">Delivery operations</p>
+            <h1 id="login-title">Welcome back</h1>
             <p>
-              Access is required before viewing dashboards, employees, teams, projects,
-              or sprint tasks.
+              Sign in to review delivery health, team capacity, and current work.
             </p>
           </div>
 
@@ -1282,10 +1816,33 @@ function App() {
             </button>
           </form>
 
-          <div className="demo-accounts">
-            <strong>Local demo accounts</strong>
-            <span>Admin: admin@taaspulse.local / AdminPass!2026</span>
-            <span>Employee: ari.chen@example.com / EmployeePass!2026</span>
+          <div className="demo-accounts" aria-label="Demo access">
+            <div>
+              <strong>Explore the demo</strong>
+              <span>Choose a role to fill in the local demo credentials.</span>
+            </div>
+            <div className="demo-account-actions">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail("admin@taaspulse.local");
+                  setLoginPassword("AdminPass!2026");
+                }}
+              >
+                <strong>Administrator</strong>
+                <span>Full workspace access</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLoginEmail("ari.chen@example.com");
+                  setLoginPassword("EmployeePass!2026");
+                }}
+              >
+                <strong>Team member</strong>
+                <span>Personal work view</span>
+              </button>
+            </div>
           </div>
         </section>
       </main>
@@ -1296,8 +1853,11 @@ function App() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="brand-block">
-          <span>TaaS</span>
-          <strong>Pulse</strong>
+          <span className="brand-mark" aria-hidden="true">TP</span>
+          <span>
+            <strong>TaaS Pulse</strong>
+            <small>Delivery operations</small>
+          </span>
         </div>
 
         <label className="mobile-nav-select">
@@ -1318,7 +1878,8 @@ function App() {
           </select>
         </label>
 
-        <nav className="fast-nav" aria-label="Fast navigation">
+        <nav className="fast-nav" aria-label="Primary navigation">
+          <p className="nav-section-label">Workspace</p>
           {navigationItems.map((item) => (
             <button
               className={[
@@ -1345,11 +1906,9 @@ function App() {
       <main className="app-shell">
         <header className="app-header">
           <div className="app-header__main">
-            <p className="eyebrow">Customer Portal</p>
-            <h1>TaaS Pulse Workspace</h1>
-            <span>
-              {selectedProject.clientName} / {selectedProject.name}
-            </span>
+            <p className="eyebrow">Workspace</p>
+            <h1>{activeNavigationItem.label}</h1>
+            <span>{activeNavigationItem.helper}</span>
           </div>
 
           <div className="app-header__actions">
@@ -1365,9 +1924,9 @@ function App() {
                 <span className="account-avatar">{authUser.displayName.charAt(0)}</span>
                 <span>
                   <strong>{authUser.displayName}</strong>
-                  <small>{authUser.role}</small>
+                  <small>{authUser.role === "admin" ? "Administrator" : "Team member"}</small>
                 </span>
-                <span className="account-caret">v</span>
+                <span className="account-caret" aria-hidden="true">⌄</span>
               </button>
 
               {isAccountMenuOpen && (
@@ -1378,7 +1937,7 @@ function App() {
                   </div>
 
                   <button type="button" role="menuitem" onClick={() => handleNavigation("dashboard")}>
-                    Dashboard
+                    Overview
                   </button>
                   <button type="button" role="menuitem" onClick={() => handleNavigation("projects")}>
                     Project overview
@@ -1386,14 +1945,14 @@ function App() {
 
                   {authUser.role === "admin" && (
                     <button type="button" role="menuitem" onClick={() => handleNavigation("team")}>
-                      Admin team tools
+                      Team management
                     </button>
                   )}
 
                   <div className="account-dropdown__separator" />
 
                   <button className="danger-menu-item" type="button" role="menuitem" onClick={handleLogout}>
-                    Logout
+                    Sign out
                   </button>
                 </div>
               )}
@@ -1412,12 +1971,25 @@ function App() {
               description="Your assigned projects, active work, sprint context, and team information in one place."
             />
 
+            <DashboardToolbar
+              message={`${employeeOpenTasks.length} tasks ready for review`}
+              actions={[
+                { label: "View my projects", view: "projects", primary: true },
+                { label: "Open task board", view: "tasks" }
+              ]}
+              onNavigate={handleNavigation}
+            />
+
             <section className="dashboard-overview" aria-label="Employee dashboard overview">
-              <div className="dashboard-hero-panel">
+              <div className="dashboard-hero-panel dashboard-hero-panel--employee">
                 <div className="dashboard-hero-panel__top">
                   <div className="dashboard-risk-copy">
                     <p className="eyebrow">My workspace</p>
-                    <div className="dashboard-risk-heading">
+                    <div
+                      className={`dashboard-risk-heading dashboard-risk-heading--${
+                        employeeHighPriorityTasks.length > 0 ? "warning" : "positive"
+                      }`}
+                    >
                       <span aria-hidden="true" />
                       <h2>{employeeDashboardStatus}</h2>
                     </div>
@@ -1429,41 +2001,67 @@ function App() {
                       {employeeOpenTasks.length === 1 ? "" : "s"}.
                     </p>
                   </div>
-                  <div className="dashboard-hero-panel__meta">
-                    <span>Weekly load</span>
-                    <strong>{employeeLoad}% planned</strong>
-                    <small>
-                      {employeePlannedHours}/{loggedEmployee.weeklyCapacityHours}h
-                    </small>
-                  </div>
+                  <DashboardProgressRing
+                    label="Weekly load"
+                    percent={employeeLoad}
+                    helper={`${employeePlannedHours}/${loggedEmployee.weeklyCapacityHours}h`}
+                    onClick={() => setDashboardInsightId("employee-load")}
+                  />
                 </div>
 
                 <div className="dashboard-signal-grid" aria-label="Employee work signals">
-                  <div>
+                  <button
+                    type="button"
+                    title="Open tasks marked as high priority"
+                    onClick={() => setDashboardInsightId("employee-priority")}
+                  >
+                    <DashboardIcon name="risk" />
                     <span>High priority</span>
                     <strong>{employeeHighPriorityTasks.length}</strong>
                     <small>Open assigned tasks</small>
-                  </div>
-                  <div>
+                  </button>
+                  <button
+                    type="button"
+                    title="Share of your assigned tasks already completed"
+                    onClick={() => setDashboardInsightId("employee-completion")}
+                  >
+                    <DashboardIcon name="progress" />
                     <span>Completion</span>
                     <strong>{employeeCompletion}%</strong>
                     <small>{employeeDoneTasks.length} tasks closed</small>
-                  </div>
-                  <div>
+                  </button>
+                  <button
+                    type="button"
+                    title="Teams available to your account"
+                    onClick={() => setDashboardInsightId("employee-teams")}
+                  >
+                    <DashboardIcon name="capacity" />
                     <span>Teams</span>
                     <strong>{employeeTeams.length}</strong>
                     <small>Your team access</small>
-                  </div>
+                  </button>
                 </div>
               </div>
 
               <div className="dashboard-focus-grid">
                 {employeeFocusItems.map((item) => (
-                  <article className="dashboard-focus-card" key={item.title}>
-                    <span>{item.title}</span>
+                  <button
+                    className={`dashboard-focus-card dashboard-focus-card--${item.tone}`}
+                    key={item.title}
+                    type="button"
+                    onClick={() => setDashboardInsightId(item.id)}
+                  >
+                    <span className="dashboard-focus-card__top">
+                      <span>{item.title}</span>
+                      <DashboardIcon name={item.icon} />
+                    </span>
                     <strong>{item.value}</strong>
                     <p>{item.helper}</p>
-                  </article>
+                    <span className="dashboard-mini-track" aria-label={`${item.progress}%`}>
+                      <span style={{ width: `${item.progress}%` }} />
+                    </span>
+                    <span className="dashboard-card-hint">Explore details →</span>
+                  </button>
                 ))}
               </div>
             </section>
@@ -1532,13 +2130,18 @@ function App() {
                       );
 
                       return (
-                        <div className="dashboard-list-item" key={task.id}>
+                        <button
+                          className="dashboard-list-item dashboard-list-item--interactive"
+                          key={task.id}
+                          type="button"
+                          onClick={() => setDashboardInsightId("employee-tasks")}
+                        >
                           <strong>{task.title}</strong>
                           <span>
                             {taskProject?.name ?? "Unknown project"} / {task.status} /{" "}
                             {task.priority} priority
                           </span>
-                        </div>
+                        </button>
                       );
                     })
                   ) : (
@@ -1558,12 +2161,18 @@ function App() {
                 <p>{employeeTeams[0]?.notes ?? "Your account is not attached to a team yet."}</p>
                 <div className="dashboard-list">
                   {visibleTeamMembers.slice(0, 5).map((member) => (
-                    <div className="dashboard-list-item" key={member.id}>
+                    <button
+                      className="dashboard-list-item dashboard-list-item--interactive"
+                      key={member.id}
+                      type="button"
+                      onClick={() => setDashboardInsightId(`person:${member.id}`)}
+                    >
                       <strong>
                         {member.name} {member.surname}
                       </strong>
                       <span>{member.role}</span>
-                    </div>
+                      <span className="dashboard-row-arrow" aria-hidden="true">→</span>
+                    </button>
                   ))}
                 </div>
               </article>
@@ -1584,13 +2193,22 @@ function App() {
                       );
 
                       return (
-                        <div className="dashboard-list-item" key={sprintItem.id}>
+                        <button
+                          className="dashboard-list-item dashboard-list-item--interactive"
+                          key={sprintItem.id}
+                          type="button"
+                          onClick={() => {
+                            setDashboardProjectId(sprintItem.projectId);
+                            setDashboardInsightId("focused-sprint");
+                          }}
+                        >
                           <strong>{sprintItem.name}</strong>
                           <span>
                             {sprintProject?.name ?? "Unknown project"} / {sprintItem.startDate} to{" "}
                             {sprintItem.endDate}
                           </span>
-                        </div>
+                          <span className="dashboard-row-arrow" aria-hidden="true">→</span>
+                        </button>
                       );
                     })
                   ) : (
@@ -1608,15 +2226,27 @@ function App() {
               currentProject={selectedProject}
               eyebrow="Dashboard"
               title="Portfolio dashboard"
-              description="A general workspace view for portfolio health, team capacity, budget usage, active work, and a manual project carousel."
+              description="Monitor delivery health, capacity, budget, and the work that needs attention now."
+            />
+
+            <DashboardToolbar
+              message={`${atRiskProjectCount} projects need attention`}
+              actions={[
+                { label: "Review projects", view: "projects", primary: true },
+                { label: "Open task board", view: "tasks" },
+                { label: "Manage data", view: "admin" }
+              ]}
+              onNavigate={handleNavigation}
             />
 
             <section className="dashboard-overview" aria-label="Dashboard overview">
-              <div className="dashboard-hero-panel">
+              <div className="dashboard-hero-panel dashboard-hero-panel--admin">
                 <div className="dashboard-hero-panel__top">
                   <div className="dashboard-risk-copy">
                     <p className="eyebrow">Workspace overview</p>
-                    <div className="dashboard-risk-heading">
+                    <div
+                      className={`dashboard-risk-heading dashboard-risk-heading--${portfolioRiskTone}`}
+                    >
                       <span aria-hidden="true" />
                       <h2>{riskLabel}</h2>
                     </div>
@@ -1625,41 +2255,67 @@ function App() {
                       plans, and {portfolioOpenTasks.length} open tasks across the workspace.
                     </p>
                   </div>
-                  <div className="dashboard-hero-panel__meta">
-                    <span>Portfolio budget</span>
-                    <strong>{portfolioBudgetUsage}% used</strong>
-                    <small>
-                      {portfolioUsedHours}/{portfolioBudgetHours}h
-                    </small>
-                  </div>
+                  <DashboardProgressRing
+                    label="Portfolio budget"
+                    percent={portfolioBudgetUsage}
+                    helper={`${portfolioUsedHours}/${portfolioBudgetHours}h`}
+                    onClick={() => setDashboardInsightId("portfolio-budget")}
+                  />
                 </div>
 
                 <div className="dashboard-signal-grid" aria-label="Portfolio signals">
-                  <div>
+                  <button
+                    type="button"
+                    title="Projects currently at risk or blocked"
+                    onClick={() => setDashboardInsightId("portfolio-risk")}
+                  >
+                    <DashboardIcon name="risk" />
                     <span>Risk projects</span>
                     <strong>{atRiskProjectCount}</strong>
                     <small>Require attention</small>
-                  </div>
-                  <div>
+                  </button>
+                  <button
+                    type="button"
+                    title="Share of all workspace tasks already completed"
+                    onClick={() => setDashboardInsightId("portfolio-completion")}
+                  >
+                    <DashboardIcon name="progress" />
                     <span>Completion</span>
                     <strong>{portfolioCompletion}%</strong>
                     <small>{portfolioDoneTasks.length} tasks closed</small>
-                  </div>
-                  <div>
+                  </button>
+                  <button
+                    type="button"
+                    title="Tasks that have not reached Done"
+                    onClick={() => setDashboardInsightId("portfolio-workload")}
+                  >
+                    <DashboardIcon name="workload" />
                     <span>Open workload</span>
                     <strong>{portfolioOpenTasks.length}</strong>
                     <small>Tasks still active</small>
-                  </div>
+                  </button>
                 </div>
               </div>
 
               <div className="dashboard-focus-grid">
                 {dashboardFocusItems.map((item) => (
-                  <article className="dashboard-focus-card" key={item.title}>
-                    <span>{item.title}</span>
+                  <button
+                    className={`dashboard-focus-card dashboard-focus-card--${item.tone}`}
+                    key={item.title}
+                    type="button"
+                    onClick={() => setDashboardInsightId(item.id)}
+                  >
+                    <span className="dashboard-focus-card__top">
+                      <span>{item.title}</span>
+                      <DashboardIcon name={item.icon} />
+                    </span>
                     <strong>{item.value}</strong>
                     <p>{item.helper}</p>
-                  </article>
+                    <span className="dashboard-mini-track" aria-label={`${item.progress}%`}>
+                      <span style={{ width: `${item.progress}%` }} />
+                    </span>
+                    <span className="dashboard-card-hint">Explore details →</span>
+                  </button>
                 ))}
               </div>
             </section>
@@ -1678,10 +2334,10 @@ function App() {
                       {dashboardProjectIndex + 1}/{projectRecords.length}
                     </span>
                     <button type="button" onClick={() => handleDashboardProjectMove(-1)}>
-                      Previous
+                      <span aria-hidden="true">←</span> Previous
                     </button>
                     <button type="button" onClick={() => handleDashboardProjectMove(1)}>
-                      Next
+                      Next <span aria-hidden="true">→</span>
                     </button>
                   </div>
                 </div>
@@ -1702,6 +2358,17 @@ function App() {
                   Delivery risk: {dashboardDeliveryRisk} / Project status:{" "}
                   {dashboardProject.status}
                 </small>
+                <button
+                  className="dashboard-text-action"
+                  type="button"
+                  onClick={() => {
+                    setSelectedProjectId(dashboardProject.id);
+                    setOpenedProjectId(dashboardProject.id);
+                    setActiveView("projects");
+                  }}
+                >
+                  Open project details <span aria-hidden="true">→</span>
+                </button>
               </article>
 
               <article className="dashboard-panel">
@@ -1717,9 +2384,17 @@ function App() {
                   <span style={{ width: `${dashboardCurrentSprintCompletion}%` }} />
                 </div>
                 <small>
-                  {dashboardCurrentSprint.startDate} to {dashboardCurrentSprint.endDate} /{" "}
+                  {formatDate(dashboardCurrentSprint.startDate)} –{" "}
+                  {formatDate(dashboardCurrentSprint.endDate)} ·{" "}
                   {dashboardCurrentSprintCompletion}% complete
                 </small>
+                <button
+                  className="dashboard-text-action"
+                  type="button"
+                  onClick={() => setDashboardInsightId("focused-sprint")}
+                >
+                  Explore sprint details <span aria-hidden="true">→</span>
+                </button>
               </article>
 
               <article className="dashboard-panel">
@@ -1733,15 +2408,28 @@ function App() {
                 <div className="dashboard-list">
                   {dashboardActivityItems.length > 0 ? (
                     dashboardActivityItems.map((item) => (
-                      <div className="dashboard-list-item" key={`${item.title}-${item.meta}`}>
+                      <button
+                        className="dashboard-list-item dashboard-list-item--interactive"
+                        key={`${item.title}-${item.meta}`}
+                        type="button"
+                        onClick={() => setDashboardInsightId("portfolio-workload")}
+                      >
                         <strong>{item.title}</strong>
                         <span>{item.meta}</span>
-                      </div>
+                        <span className="dashboard-row-arrow" aria-hidden="true">→</span>
+                      </button>
                     ))
                   ) : (
                     <p>No open task needs attention for this project.</p>
                   )}
                 </div>
+                <button
+                  className="dashboard-text-action"
+                  type="button"
+                  onClick={() => handleNavigation("tasks")}
+                >
+                  Review open work <span aria-hidden="true">→</span>
+                </button>
               </article>
 
               <article className="dashboard-panel dashboard-panel--wide">
@@ -1755,7 +2443,19 @@ function App() {
                 <div className="dashboard-workload">
                   {topTeamLoads.length > 0 ? (
                     topTeamLoads.map((loadItem) => (
-                      <div className="dashboard-workload-row" key={loadItem.member.id}>
+                      <div
+                        className="dashboard-workload-row dashboard-workload-row--interactive"
+                        key={loadItem.member.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setDashboardInsightId(`person:${loadItem.member.id}`)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            setDashboardInsightId(`person:${loadItem.member.id}`);
+                          }
+                        }}
+                      >
                         <div>
                           <strong>
                             {loadItem.member.name} {loadItem.member.surname}
@@ -1784,7 +2484,7 @@ function App() {
               <>
                 <PageHeader
                   currentProject={selectedProject}
-                  eyebrow="Dependents Info"
+                  eyebrow="People"
                   title="Employee directory"
                   description="People available for project delivery, with contact data, job information, and capacity."
                 />
@@ -1861,6 +2561,11 @@ function App() {
 
                   <button
                     type="button"
+                    disabled={
+                      employeeSearch.length === 0 &&
+                      employeeJobFilter === "all" &&
+                      employeeProjectFilter === "all"
+                    }
                     onClick={() => {
                       setEmployeeSearch("");
                       setIsEmployeeAutocompleteOpen(false);
@@ -1868,7 +2573,7 @@ function App() {
                       setEmployeeProjectFilter("all");
                     }}
                   >
-                    Reset
+                    Clear filters
                   </button>
                 </section>
 
@@ -1923,7 +2628,7 @@ function App() {
                     type="button"
                     onClick={() => setOpenedDependentId(null)}
                   >
-                    &lt;- Back to dependents
+                    ← Back to people
                   </button>
 
                   {isAdmin && (
@@ -1932,7 +2637,7 @@ function App() {
                       type="button"
                       onClick={() => handleDeleteOpenedDependent(openedDependent)}
                     >
-                      Delete dependent
+                      Delete person
                     </button>
                   )}
                 </div>
@@ -2038,10 +2743,28 @@ function App() {
           <>
             <PageHeader
               currentProject={selectedProject}
-              eyebrow="Team Info"
+              eyebrow="Teams"
               title={visibleTeam.name}
               description="Team view for understanding ownership, capacity, focus area, and project assignment."
             />
+
+            {isAdmin && (
+              <section className="context-switcher" aria-label="Team selection">
+                <label htmlFor="team-view-select">Viewing team</label>
+                <select
+                  id="team-view-select"
+                  value={visibleTeam.id}
+                  onChange={(event) => setSelectedTeamId(Number(event.target.value))}
+                >
+                  {teamRecords.map((team) => (
+                    <option key={team.id} value={team.id}>
+                      {team.name}
+                    </option>
+                  ))}
+                </select>
+                <span>{visibleTeam.focusArea}</span>
+              </section>
+            )}
 
             <section className="detail-grid">
               <article className="detail-panel">
@@ -2109,8 +2832,7 @@ function App() {
                         disabled={!isAccessible}
                         key={projectItem.id}
                         type="button"
-                        onClick={() => setSelectedProjectId(projectItem.id)}
-                        onDoubleClick={() => {
+                        onClick={() => {
                           if (isAccessible) {
                             setSelectedProjectId(projectItem.id);
                             setOpenedProjectId(projectItem.id);
@@ -2124,8 +2846,8 @@ function App() {
                         </span>
                         <span className="project-access-card__meta">
                           <small>Status: {projectItem.status}</small>
-                          <small>Deadline: {projectItem.deadline}</small>
-                          <small>{isAccessible ? "Double click to open" : "Locked: not assigned"}</small>
+                          <small>Due {formatDate(projectItem.deadline)}</small>
+                          <small>{isAccessible ? "Open project →" : "Locked · Not assigned"}</small>
                         </span>
                       </button>
                     );
@@ -2276,7 +2998,7 @@ function App() {
                         disabled={!isAccessible}
                         key={sprintItem.id}
                         type="button"
-                        onDoubleClick={() => {
+                        onClick={() => {
                           if (isAccessible) {
                             setSelectedProjectId(sprintItem.projectId);
                             setOpenedSprintId(sprintItem.id);
@@ -2292,9 +3014,9 @@ function App() {
                           <small>Project: {sprintProject?.name ?? "Unknown project"}</small>
                           <small>Status: {sprintItem.status}</small>
                           <small>
-                            {sprintItem.startDate} to {sprintItem.endDate}
+                            {formatDate(sprintItem.startDate)} – {formatDate(sprintItem.endDate)}
                           </small>
-                          <small>{isAccessible ? "Double click to open" : "Locked: not assigned"}</small>
+                          <small>{isAccessible ? "Open sprint →" : "Locked · Not assigned"}</small>
                         </span>
                       </button>
                     );
@@ -2426,12 +3148,12 @@ function App() {
           <>
             <PageHeader
               currentProject={selectedProject}
-              eyebrow="Admin Edits"
-              title="Admin edits"
-              description="A protected workspace for creating and maintaining operational data without mixing edit tools into the read-only portal pages."
+              eyebrow="Administration"
+              title="Data management"
+              description="Create and maintain workspace data from one protected area."
             />
 
-            <section className="admin-edit-shell" aria-label="Admin edit tools">
+            <section className="admin-edit-shell" aria-label="Data management tools">
               <aside className="admin-edit-sidebar">
                 <p className="eyebrow">Edit categories</p>
                 <button
@@ -2443,7 +3165,7 @@ function App() {
                   type="button"
                   onClick={() => setAdminEditSection("sprints")}
                 >
-                  <strong>Sprint Editor</strong>
+                  <strong>Sprints</strong>
                   <span>Create sprint plans and planning metadata</span>
                 </button>
                 <button
@@ -2455,7 +3177,7 @@ function App() {
                   type="button"
                   onClick={() => setAdminEditSection("projects")}
                 >
-                  <strong>Project Editor</strong>
+                  <strong>Projects</strong>
                   <span>Edit project identity, budget, status, and risk</span>
                 </button>
                 <button
@@ -2467,7 +3189,7 @@ function App() {
                   type="button"
                   onClick={() => setAdminEditSection("teams")}
                 >
-                  <strong>Team Editor</strong>
+                  <strong>Teams</strong>
                   <span>Create teams, assign leads, members, and projects</span>
                 </button>
                 <button
@@ -2479,8 +3201,8 @@ function App() {
                   type="button"
                   onClick={() => setAdminEditSection("dependents")}
                 >
-                  <strong>Dependents Editor</strong>
-                  <span>Create employees and edit their assignments</span>
+                  <strong>People</strong>
+                  <span>Create team members and edit their assignments</span>
                 </button>
               </aside>
 
@@ -2960,10 +3682,10 @@ function App() {
               )}
 
               {adminEditSection === "dependents" && (
-                <section className="sprint-creator" aria-label="Dependents editor">
+                <section className="sprint-creator" aria-label="People editor">
                   <div className="sprint-creator__intro">
                     <div>
-                      <p className="eyebrow">Dependents manager</p>
+                      <p className="eyebrow">People manager</p>
                       <h2>
                         {dependentFormMode === "create" ? "Create employee" : "Edit employee"}
                       </h2>
@@ -3206,10 +3928,6 @@ function App() {
                         key={sprintItem.id}
                         type="button"
                         onClick={() => setSelectedSprintId(sprintItem.id)}
-                        onDoubleClick={() => {
-                          setOpenedSprintId(sprintItem.id);
-                          setActiveView("sprints");
-                        }}
                       >
                         <span>{sprintItem.status}</span>
                         <strong>{sprintItem.name}</strong>
@@ -3293,7 +4011,7 @@ function App() {
                     <p className="eyebrow">Live board</p>
                     <h2>{sprintExecutionTitle}</h2>
                   </div>
-                  <p>Double click a sprint in the backlog to open the full sprint detail page.</p>
+                  <p>Select a sprint to focus the board, workload, and status metrics.</p>
                 </section>
 
                 <TaskBoard tasks={selectedSprintTasks} teamMembers={teamMemberRecords} />
@@ -3302,12 +4020,46 @@ function App() {
           </>
         )}
 
+        {dashboardInsightId && (
+          <div
+            className="dashboard-drawer-backdrop"
+            role="presentation"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setDashboardInsightId(null);
+              }
+            }}
+          >
+            <aside
+              ref={dashboardDrawerRef}
+              className="dashboard-drawer"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="dashboard-drawer-title"
+            >
+              <header className="dashboard-drawer__header">
+                <div>
+                  <p className="eyebrow">{getDashboardInsightMeta().eyebrow}</p>
+                  <h2 id="dashboard-drawer-title">{getDashboardInsightMeta().title}</h2>
+                  <p>{getDashboardInsightMeta().description}</p>
+                </div>
+                <button
+                  autoFocus
+                  type="button"
+                  aria-label="Close details"
+                  onClick={() => setDashboardInsightId(null)}
+                >
+                  ×
+                </button>
+              </header>
+              <div className="dashboard-drawer__body">{renderDashboardInsightContent()}</div>
+            </aside>
+          </div>
+        )}
+
         <footer className="app-footer">
-          <span>(c) 2026 TaaS Pulse</span>
-          <a href="#terms">Terms of Service</a>
-          <a href="#privacy">Privacy Notice</a>
-          <a href="#security">Security Info</a>
-          <span>Demo system. Do not use real credentials.</span>
+          <span>© 2026 TaaS Pulse</span>
+          <span>Local demo workspace · Do not use real credentials</span>
         </footer>
       </main>
     </div>
@@ -3321,8 +4073,164 @@ type PageHeaderProps = {
   description: string;
 };
 
+type DashboardIconName =
+  | "projects"
+  | "tasks"
+  | "capacity"
+  | "risk"
+  | "progress"
+  | "workload";
+
+type DashboardToolbarProps = {
+  message: string;
+  actions: Array<{ label: string; view: ViewId; primary?: boolean }>;
+  onNavigate: (view: ViewId) => void;
+};
+
+function DashboardToolbar({ message, actions, onNavigate }: DashboardToolbarProps) {
+  return (
+    <section className="dashboard-toolbar" aria-label="Dashboard actions">
+      <div className="dashboard-live-status">
+        <span aria-hidden="true" />
+        <p>
+          <strong>Current snapshot</strong>
+          {message}
+        </p>
+      </div>
+      <div className="dashboard-toolbar__actions">
+        {actions.map((action) => (
+          <button
+            className={action.primary ? "dashboard-cta dashboard-cta--primary" : "dashboard-cta"}
+            key={action.view}
+            type="button"
+            onClick={() => onNavigate(action.view)}
+          >
+            {action.label}
+            <span aria-hidden="true">→</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DashboardProgressRing({
+  label,
+  percent,
+  helper,
+  onClick
+}: {
+  label: string;
+  percent: number;
+  helper: string;
+  onClick: () => void;
+}) {
+  const safePercent = Math.min(Math.max(percent, 0), 100);
+  const ringStyle = { "--progress": `${safePercent}%` } as CSSProperties;
+
+  return (
+    <button
+      className="dashboard-progress-ring-card"
+      type="button"
+      title={`${label}: ${safePercent}% — open details`}
+      onClick={onClick}
+    >
+      <span
+        className="dashboard-progress-ring"
+        style={ringStyle}
+        role="img"
+        aria-label={`${label}: ${safePercent}%`}
+      >
+        <span>{safePercent}%</span>
+      </span>
+      <span className="dashboard-progress-ring-copy">
+        <span>{label}</span>
+        <strong>{safePercent}%</strong>
+        <small>{helper}</small>
+      </span>
+      <span className="dashboard-ring-hint" aria-hidden="true">→</span>
+    </button>
+  );
+}
+
+function InsightStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="insight-stat">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function DashboardIcon({ name }: { name: DashboardIconName }) {
+  const paths: Record<DashboardIconName, ReactNode> = {
+    projects: (
+      <>
+        <path d="M4 7.5h16v11H4z" />
+        <path d="M4 7.5 7 4.5h4l2 3" />
+      </>
+    ),
+    tasks: (
+      <>
+        <path d="m5 7 1.5 1.5L9 6" />
+        <path d="M11 7h8" />
+        <path d="m5 13 1.5 1.5L9 12" />
+        <path d="M11 13h8" />
+        <path d="M5 19h14" />
+      </>
+    ),
+    capacity: (
+      <>
+        <circle cx="8" cy="8" r="3" />
+        <circle cx="16.5" cy="9" r="2.5" />
+        <path d="M3.5 19c.5-3.5 2-5.5 4.5-5.5s4 2 4.5 5.5" />
+        <path d="M13 19c.3-2.7 1.5-4.3 3.5-4.3S20 16.3 20.5 19" />
+      </>
+    ),
+    risk: (
+      <>
+        <path d="M12 3.5 21 20H3z" />
+        <path d="M12 9v4.5" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+    progress: (
+      <>
+        <path d="M12 3a9 9 0 1 0 9 9" />
+        <path d="M12 3v9h9" />
+      </>
+    ),
+    workload: (
+      <>
+        <path d="M4 19V9" />
+        <path d="M10 19V5" />
+        <path d="M16 19v-7" />
+        <path d="M22 19H2" />
+      </>
+    )
+  };
+
+  return (
+    <span className={`dashboard-icon dashboard-icon--${name}`} aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+        {paths[name]}
+      </svg>
+    </span>
+  );
+}
+
 function normalizePhoneSearch(value: string) {
   return value.replace(/\D/g, "");
+}
+
+function formatDate(value: string) {
+  const date = new Date(`${value}T00:00:00`);
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(date);
 }
 
 function PageHeader({ currentProject, eyebrow, title, description }: PageHeaderProps) {
@@ -3334,9 +4242,9 @@ function PageHeader({ currentProject, eyebrow, title, description }: PageHeaderP
         <p>{description}</p>
       </div>
       <div className="project-status">
-        <span>Client</span>
-        <strong>{currentProject.clientName}</strong>
-        <small>Deadline: {currentProject.deadline}</small>
+        <span>Current project</span>
+        <strong>{currentProject.name}</strong>
+        <small>{currentProject.clientName} · Due {formatDate(currentProject.deadline)}</small>
       </div>
     </header>
   );
