@@ -28,9 +28,31 @@ SQLite è incluso in Python: non serve installare un database separato.
 Clonare il repository e aprirlo:
 
 ```bash
-git clone URL_DEL_REPOSITORY
+git clone https://github.com/AlessioGoriITS/react-TaaS-Pulse.git
 cd react-TaaS-Pulse
 ```
+
+### Setup automatico su Windows
+
+Con Python e Node.js già installati, eseguire `setup.exe` dalla cartella
+principale del repository. Il programma:
+
+1. verifica la disponibilità di Python e npm;
+2. crea o riutilizza `.venv`;
+3. installa le dipendenze Python e JavaScript;
+4. crea `.env` da `.env.example` senza sovrascrivere configurazioni esistenti;
+5. applica le migrazioni;
+6. genera i dati demo;
+7. esegue il controllo di configurazione Django.
+
+Il setup può essere rilanciato in sicurezza. Per verificare soltanto i
+prerequisiti senza installare o modificare nulla:
+
+```powershell
+.\setup.exe --check-only --no-pause
+```
+
+La procedura manuale seguente rimane disponibile su tutti i sistemi operativi.
 
 Creare l'ambiente Python:
 
