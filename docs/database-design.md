@@ -71,6 +71,12 @@ erDiagram
         date start_date
         date end_date
         string status
+        string importance
+        int capacity_hours
+        string focus_area
+        text definition_of_done
+        text risk_notes
+        text backlog_notes
     }
     TASK {
         bigint id PK
@@ -94,6 +100,7 @@ erDiagram
 - una persona può comparire una sola volta nello stesso progetto o team;
 - un nome sprint è unico all'interno del progetto;
 - fine sprint non può precedere l'inizio;
+- la capacità pianificata dello sprint deve essere positiva;
 - ore e compensi non possono essere negativi;
 - `Project` elimina in cascata sprint, task e membership;
 - `Employee` è protetto finché il suo `Job` esiste, mentre la cancellazione

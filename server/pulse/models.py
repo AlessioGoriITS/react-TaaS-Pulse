@@ -212,6 +212,11 @@ class Sprint(TimestampedModel):
         choices=Importance.choices,
         default=Importance.MEDIUM,
     )
+    capacity_hours = models.PositiveIntegerField(default=80)
+    focus_area = models.CharField(max_length=200, blank=True)
+    definition_of_done = models.TextField(blank=True)
+    risk_notes = models.TextField(blank=True)
+    backlog_notes = models.TextField(blank=True)
 
     class Meta:
         ordering = ["-start_date", "name"]
@@ -223,6 +228,10 @@ class Sprint(TimestampedModel):
             models.CheckConstraint(
                 condition=Q(end_date__gte=F("start_date")),
                 name="sprint_end_not_before_start",
+            ),
+            models.CheckConstraint(
+                condition=Q(capacity_hours__gt=0),
+                name="sprint_capacity_positive",
             ),
         ]
 

@@ -518,6 +518,17 @@ class Command(BaseCommand):
                             if sprint_index == 2
                             else Importance.LOW
                         ),
+                        "capacity_hours": 80 + (sprint_index * 16),
+                        "focus_area": spec["name"],
+                        "definition_of_done": (
+                            "Acceptance criteria met, code reviewed, tests passing, "
+                            "and stakeholder notes updated."
+                        ),
+                        "risk_notes": spec["notes"] if sprint_index == 1 else "",
+                        "backlog_notes": (
+                            f"Prioritize the {SPRINT_NAMES[sprint_index].lower()} milestone "
+                            "and review blocked work daily."
+                        ),
                     },
                 )
                 sprints.append(sprint)

@@ -42,6 +42,9 @@ desktop.ini
 *.swo
 
 # Test and tool caches
+__pycache__/
+*.py[cod]
+*.tsbuildinfo
 .eslintcache
 .stylelintcache
 .vitest/

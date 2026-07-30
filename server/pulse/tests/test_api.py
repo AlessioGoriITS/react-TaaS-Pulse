@@ -2,7 +2,9 @@ from datetime import date
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
+from django.test import override_settings
 from django.urls import reverse
+from rest_framework.authtoken.models import Token
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -56,6 +58,14 @@ class ApiTestCase(APITestCase):
         response = self.client.get(reverse("me"))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["user"]["email"], self.admin.email)
+
+    @override_settings(TOKEN_MAX_AGE_SECONDS=0)
+    def test_expired_token_is_revoked_and_rejected(self):
+        token = self.login().data["token"]
+        response = self.client.get(reverse("workspace"))
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertIn("expired", response.data["error"].lower())
+        self.assertFalse(Token.objects.filter(key=token).exists())
 
     def test_regular_user_sees_only_assigned_projects(self):
         self.authenticate(self.user)
@@ -152,6 +162,38 @@ class ApiTestCase(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("endDate", response.data["details"])
 
+    def test_sprint_delivery_fields_are_persisted(self):
+        self.authenticate()
+        project = Project.objects.first()
+        response = self.client.post(
+            reverse("sprint-list"),
+            {
+                "projectId": project.id,
+                "name": "Persistent planning data",
+                "longDescription": "A complete sprint goal.",
+                "startDate": "2026-09-01",
+                "endDate": "2026-09-14",
+                "status": "Planned",
+                "importance": "High",
+                "capacityHours": 96,
+                "focusArea": "API hardening",
+                "definitionOfDone": "Tests and documentation are complete.",
+                "riskNotes": "External dependency.",
+                "backlogNotes": "Review priority daily.",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        sprint = Sprint.objects.get(pk=response.data["item"]["id"])
+        self.assertEqual(sprint.capacity_hours, 96)
+        self.assertEqual(sprint.focus_area, "API hardening")
+        saved = next(
+            item
+            for item in response.data["workspace"]["sprints"]
+            if item["id"] == sprint.id
+        )
+        self.assertEqual(saved["definitionOfDone"], "Tests and documentation are complete.")
+
     def test_task_rejects_sprint_from_another_project(self):
         self.authenticate()
         first = Project.objects.first()
@@ -195,7 +237,19 @@ class ApiTestCase(APITestCase):
             {"project": project.id, "search": "invoice", "ordering": "-spent_hours"},
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertTrue(all("invoice" in item["title"].lower() for item in response.data))
+        self.assertIn("results", response.data)
+        self.assertTrue(
+            all("invoice" in item["title"].lower() for item in response.data["results"])
+        )
+
+    def test_list_endpoints_are_paginated_with_bounded_page_size(self):
+        self.authenticate()
+        response = self.client.get(reverse("task-list"), {"page_size": 5, "page": 2})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["results"]), 5)
+        self.assertGreater(response.data["count"], 5)
+        self.assertIsNotNone(response.data["next"])
+        self.assertIsNotNone(response.data["previous"])
 
     def test_logout_revokes_token(self):
         login_response = self.login()

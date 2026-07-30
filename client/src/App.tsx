@@ -48,6 +48,35 @@ const defaultSprint = initialSprints[0];
 const defaultTeamMember = initialTeamMembers[0];
 const defaultTeam = initialTeams[0];
 const defaultDefinitionOfDone = "Code reviewed, tested, documented, and ready for demo.";
+const viewPaths: Record<ViewId, string> = {
+  dashboard: "/",
+  projects: "/projects",
+  sprints: "/sprints",
+  tasks: "/tasks",
+  dependents: "/people",
+  team: "/teams",
+  admin: "/admin"
+};
+
+function readAppRoute() {
+  const detailMatch = window.location.pathname.match(/^\/(projects|sprints|people)\/(\d+)\/?$/);
+  const section = detailMatch?.[1] ?? window.location.pathname.split("/").filter(Boolean)[0] ?? "";
+  const viewBySection: Record<string, ViewId> = {
+    projects: "projects",
+    sprints: "sprints",
+    tasks: "tasks",
+    people: "dependents",
+    teams: "team",
+    admin: "admin"
+  };
+
+  return {
+    view: viewBySection[section] ?? "dashboard",
+    detailKind: detailMatch?.[1] ?? null,
+    detailId: detailMatch ? Number(detailMatch[2]) : null,
+    params: new URLSearchParams(window.location.search)
+  };
+}
 
 const navigationItems: Array<{ id: ViewId; label: string; helper: string }> = [
   { id: "dashboard", label: "Overview", helper: "Portfolio health" },
@@ -79,12 +108,14 @@ type DashboardInsightId =
 
 function App() {
   const dashboardDrawerRef = useRef<HTMLElement>(null);
-  const [activeView, setActiveView] = useState<ViewId>("dashboard");
+  const initialRoute = useRef(readAppRoute());
+  const [activeView, setActiveView] = useState<ViewId>(initialRoute.current.view);
   const [selectedProjectId, setSelectedProjectId] = useState(defaultProject.id);
   const [dashboardProjectId, setDashboardProjectId] = useState(defaultProject.id);
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authStatus, setAuthStatus] = useState<AuthStatus>("checking");
   const [workspaceError, setWorkspaceError] = useState("");
+  const [workspaceLoaded, setWorkspaceLoaded] = useState(false);
   const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
   const [dashboardInsightId, setDashboardInsightId] =
     useState<DashboardInsightId | null>(null);
@@ -96,23 +127,39 @@ function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
-  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState(
+    initialRoute.current.params.get("search") ?? ""
+  );
   const [isEmployeeAutocompleteOpen, setIsEmployeeAutocompleteOpen] = useState(false);
-  const [employeeJobFilter, setEmployeeJobFilter] = useState("all");
-  const [employeeProjectFilter, setEmployeeProjectFilter] = useState("all");
-  const [openedDependentId, setOpenedDependentId] = useState<number | null>(null);
+  const [employeeJobFilter, setEmployeeJobFilter] = useState(
+    initialRoute.current.params.get("job") ?? "all"
+  );
+  const [employeeProjectFilter, setEmployeeProjectFilter] = useState(
+    initialRoute.current.params.get("project") ?? "all"
+  );
+  const [openedDependentId, setOpenedDependentId] = useState<number | null>(
+    initialRoute.current.detailKind === "people" ? initialRoute.current.detailId : null
+  );
   const [teamMemberRecords, setTeamMemberRecords] =
     useState<TeamMember[]>(initialTeamMembers);
   const [teamRecords, setTeamRecords] = useState<Team[]>(initialTeams);
   const [selectedTeamId, setSelectedTeamId] = useState(defaultTeam.id);
   const [projectRecords, setProjectRecords] = useState<Project[]>(initialProjects);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
-  const [projectSearch, setProjectSearch] = useState("");
-  const [openedProjectId, setOpenedProjectId] = useState<number | null>(null);
-  const [sprintSearch, setSprintSearch] = useState("");
+  const [projectSearch, setProjectSearch] = useState(
+    initialRoute.current.params.get("search") ?? ""
+  );
+  const [openedProjectId, setOpenedProjectId] = useState<number | null>(
+    initialRoute.current.detailKind === "projects" ? initialRoute.current.detailId : null
+  );
+  const [sprintSearch, setSprintSearch] = useState(
+    initialRoute.current.params.get("search") ?? ""
+  );
   const [sprintRecords, setSprintRecords] = useState<Sprint[]>(initialSprints);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
-  const [openedSprintId, setOpenedSprintId] = useState<number | null>(null);
+  const [openedSprintId, setOpenedSprintId] = useState<number | null>(
+    initialRoute.current.detailKind === "sprints" ? initialRoute.current.detailId : null
+  );
   const [sprintFormMode, setSprintFormMode] = useState<"create" | "edit">("create");
   const [editedSprintId, setEditedSprintId] = useState(String(defaultSprint.id));
   const [newSprintProjectId, setNewSprintProjectId] = useState(String(defaultProject.id));
@@ -204,7 +251,8 @@ function App() {
         projectItem.id === selectedProjectId && accessibleProjectIds.includes(projectItem.id)
     ) ??
     projectRecords.find((projectItem) => accessibleProjectIds.includes(projectItem.id)) ??
-    projectRecords[0];
+    projectRecords[0] ??
+    defaultProject;
   const selectedProjectSprints = sprintRecords.filter(
     (sprintItem) => sprintItem.projectId === selectedProject.id
   );
@@ -216,8 +264,9 @@ function App() {
     : selectedProjectTasks;
   const visibleTeam =
     isAdmin || !loggedEmployee
-      ? teamRecords.find((team) => team.id === selectedTeamId) ?? teamRecords[0]
-      : teamRecords.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teamRecords[0];
+      ? teamRecords.find((team) => team.id === selectedTeamId) ?? teamRecords[0] ?? defaultTeam
+      : teamRecords.find((team) => team.memberIds.includes(loggedEmployee.id)) ?? teamRecords[0] ??
+        defaultTeam;
   const visibleTeamMembers = teamMemberRecords.filter((member) =>
     visibleTeam.memberIds.includes(member.id)
   );
@@ -603,13 +652,12 @@ function App() {
   ].slice(0, 5);
 
   function applyWorkspace(workspace: WorkspaceData) {
-    setProjectRecords(workspace.projects.length > 0 ? workspace.projects : initialProjects);
-    setTeamMemberRecords(
-      workspace.teamMembers.length > 0 ? workspace.teamMembers : initialTeamMembers
-    );
-    setTeamRecords(workspace.teams.length > 0 ? workspace.teams : initialTeams);
-    setSprintRecords(workspace.sprints.length > 0 ? workspace.sprints : initialSprints);
+    setProjectRecords(workspace.projects);
+    setTeamMemberRecords(workspace.teamMembers);
+    setTeamRecords(workspace.teams);
+    setSprintRecords(workspace.sprints);
     setTasks(workspace.tasks);
+    setWorkspaceLoaded(true);
 
     const firstProject = workspace.projects[0];
     if (firstProject) {
@@ -626,9 +674,22 @@ function App() {
     }
   }
 
+  async function refreshWorkspace() {
+    try {
+      const workspace = await getWorkspace();
+      applyWorkspace(workspace);
+      setWorkspaceError("");
+    } catch (error) {
+      setWorkspaceError(
+        error instanceof Error ? error.message : "Could not load database workspace."
+      );
+    }
+  }
+
   useEffect(() => {
     if (authUser?.role === "user" && (activeView === "dependents" || activeView === "admin")) {
       setActiveView("dashboard");
+      window.history.replaceState({}, "", viewPaths.dashboard);
     }
   }, [activeView, authUser]);
 
@@ -658,20 +719,115 @@ function App() {
 
   useEffect(() => {
     if (!authUser) {
+      setWorkspaceLoaded(false);
       return;
     }
 
-    getWorkspace()
-      .then((workspace) => {
-        applyWorkspace(workspace);
-        setWorkspaceError("");
-      })
-      .catch((error) => {
-        setWorkspaceError(
-          error instanceof Error ? error.message : "Could not load database workspace."
-        );
-      });
+    void refreshWorkspace();
   }, [authUser]);
+
+  useEffect(() => {
+    function handleExpiredSession() {
+      setAuthUser(null);
+      setAuthStatus("unauthenticated");
+      setWorkspaceLoaded(false);
+      setLoginError("Your session expired. Sign in again to continue.");
+    }
+
+    window.addEventListener("taas-pulse:session-expired", handleExpiredSession);
+    return () =>
+      window.removeEventListener("taas-pulse:session-expired", handleExpiredSession);
+  }, []);
+
+  useEffect(() => {
+    function restoreRoute() {
+      const route = readAppRoute();
+      setActiveView(route.view);
+      setOpenedProjectId(route.detailKind === "projects" ? route.detailId : null);
+      setOpenedSprintId(route.detailKind === "sprints" ? route.detailId : null);
+      setOpenedDependentId(route.detailKind === "people" ? route.detailId : null);
+      if (!route.detailKind) {
+        const search = route.params.get("search") ?? "";
+        if (route.view === "projects") setProjectSearch(search);
+        if (route.view === "sprints") setSprintSearch(search);
+        if (route.view === "dependents") {
+          setEmployeeSearch(search);
+          setEmployeeJobFilter(route.params.get("job") ?? "all");
+          setEmployeeProjectFilter(route.params.get("project") ?? "all");
+        }
+      }
+    }
+
+    window.addEventListener("popstate", restoreRoute);
+    return () => window.removeEventListener("popstate", restoreRoute);
+  }, []);
+
+  useEffect(() => {
+    if (
+      openedProjectId ||
+      openedSprintId ||
+      openedDependentId ||
+      !["projects", "sprints", "dependents"].includes(activeView)
+    ) {
+      return;
+    }
+
+    const params = new URLSearchParams();
+    const search =
+      activeView === "projects"
+        ? projectSearch
+        : activeView === "sprints"
+          ? sprintSearch
+          : employeeSearch;
+    if (search) params.set("search", search);
+    if (activeView === "dependents") {
+      if (employeeJobFilter !== "all") params.set("job", employeeJobFilter);
+      if (employeeProjectFilter !== "all") params.set("project", employeeProjectFilter);
+    }
+    const query = params.toString();
+    window.history.replaceState({}, "", `${viewPaths[activeView]}${query ? `?${query}` : ""}`);
+  }, [
+    activeView,
+    employeeJobFilter,
+    employeeProjectFilter,
+    employeeSearch,
+    openedDependentId,
+    openedProjectId,
+    openedSprintId,
+    projectSearch,
+    sprintSearch
+  ]);
+
+  useEffect(() => {
+    if (!workspaceLoaded) {
+      return;
+    }
+
+    if (openedProjectId && !projectRecords.some((item) => item.id === openedProjectId)) {
+      setOpenedProjectId(null);
+      setWorkspaceError("The requested project does not exist or is not available to your account.");
+      window.history.replaceState({}, "", viewPaths.projects);
+    } else if (openedSprintId && !sprintRecords.some((item) => item.id === openedSprintId)) {
+      setOpenedSprintId(null);
+      setWorkspaceError("The requested sprint does not exist or is not available to your account.");
+      window.history.replaceState({}, "", viewPaths.sprints);
+    } else if (
+      openedDependentId &&
+      !teamMemberRecords.some((item) => item.id === openedDependentId)
+    ) {
+      setOpenedDependentId(null);
+      setWorkspaceError("The requested person does not exist or is not available to your account.");
+      window.history.replaceState({}, "", viewPaths.dependents);
+    }
+  }, [
+    openedDependentId,
+    openedProjectId,
+    openedSprintId,
+    projectRecords,
+    sprintRecords,
+    teamMemberRecords,
+    workspaceLoaded
+  ]);
 
   useEffect(() => {
     if (!isDashboardDrawerOpen) {
@@ -1358,7 +1514,21 @@ function App() {
       return;
     }
 
+    setOpenedProjectId(null);
+    setOpenedSprintId(null);
+    setOpenedDependentId(null);
     setActiveView(viewId);
+    window.history.pushState({}, "", viewPaths[viewId]);
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+
+  function openDetail(kind: "projects" | "sprints" | "people", id: number) {
+    rememberDetailOrigin();
+    setOpenedProjectId(kind === "projects" ? id : null);
+    setOpenedSprintId(kind === "sprints" ? id : null);
+    setOpenedDependentId(kind === "people" ? id : null);
+    setActiveView(kind === "people" ? "dependents" : kind);
+    window.history.pushState({ detail: true }, "", `/${kind}/${id}`);
   }
 
   function openDashboardInsight(insightId: DashboardInsightId) {
@@ -1409,6 +1579,21 @@ function App() {
 
   function returnFromDetail(closeDetail: () => void) {
     closeDetail();
+    const listPath = viewPaths[activeView];
+    const params = new URLSearchParams();
+    const search =
+      activeView === "projects"
+        ? projectSearch
+        : activeView === "sprints"
+          ? sprintSearch
+          : employeeSearch;
+    if (search) params.set("search", search);
+    if (activeView === "dependents") {
+      if (employeeJobFilter !== "all") params.set("job", employeeJobFilter);
+      if (employeeProjectFilter !== "all") params.set("project", employeeProjectFilter);
+    }
+    const query = params.toString();
+    window.history.pushState({}, "", `${listPath}${query ? `?${query}` : ""}`);
     window.requestAnimationFrame(() => {
       window.scrollTo({ top: detailOriginScrollRef.current, behavior: "auto" });
     });
@@ -1538,9 +1723,8 @@ function App() {
                 onClick={() => {
                   detailOriginScrollRef.current = 0;
                   setSelectedProjectId(projectItem.id);
-                  setOpenedProjectId(projectItem.id);
                   closeDashboardInsight();
-                  setActiveView("projects");
+                  openDetail("projects", projectItem.id);
                 }}
               >
                 <span>
@@ -1663,9 +1847,8 @@ function App() {
               onClick={() => {
                 detailOriginScrollRef.current = 0;
                 setSelectedProjectId(projectItem.id);
-                setOpenedProjectId(projectItem.id);
                 closeDashboardInsight();
-                setActiveView("projects");
+                openDetail("projects", projectItem.id);
               }}
             >
               <span>{projectItem.status}</span>
@@ -1923,6 +2106,49 @@ function App() {
               </button>
             </div>
           </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!workspaceLoaded) {
+    return (
+      <main className="login-screen">
+        <section className="login-card session-skeleton" aria-live="polite">
+          <p className="eyebrow">TaaS Pulse</p>
+          <h1>{workspaceError ? "Workspace unavailable" : "Loading database data"}</h1>
+          <p>
+            {workspaceError ||
+              "Retrieving projects, people, teams, sprints, and tasks from the protected API."}
+          </p>
+          {workspaceError && (
+            <div className="demo-account-actions">
+              <button type="button" onClick={() => void refreshWorkspace()}>
+                Retry
+              </button>
+              <button type="button" onClick={() => void handleLogout()}>
+                Sign out
+              </button>
+            </div>
+          )}
+        </section>
+      </main>
+    );
+  }
+
+  if (projectRecords.length === 0) {
+    return (
+      <main className="login-screen">
+        <section className="login-card">
+          <p className="eyebrow">Empty database workspace</p>
+          <h1>No projects are available</h1>
+          <p>
+            The interface is showing the real backend state. An administrator can create the
+            first records, or local evaluators can run <code>python server/manage.py seed_demo</code>.
+          </p>
+          <button type="button" onClick={() => void handleLogout()}>
+            Sign out
+          </button>
         </section>
       </main>
     );
@@ -2444,8 +2670,7 @@ function App() {
                   onClick={() => {
                     detailOriginScrollRef.current = 0;
                     setSelectedProjectId(dashboardProject.id);
-                    setOpenedProjectId(dashboardProject.id);
-                    setActiveView("projects");
+                    openDetail("projects", dashboardProject.id);
                   }}
                 >
                   Open project details <span aria-hidden="true">→</span>
@@ -2677,8 +2902,7 @@ function App() {
                       key={member.id}
                       type="button"
                       onClick={() => {
-                        rememberDetailOrigin();
-                        setOpenedDependentId(member.id);
+                        openDetail("people", member.id);
                       }}
                     >
                       <span>
@@ -2920,9 +3144,8 @@ function App() {
                         type="button"
                         onClick={() => {
                           if (isAccessible) {
-                            rememberDetailOrigin();
                             setSelectedProjectId(projectItem.id);
-                            setOpenedProjectId(projectItem.id);
+                            openDetail("projects", projectItem.id);
                           }
                         }}
                       >
@@ -3094,9 +3317,8 @@ function App() {
                         type="button"
                         onClick={() => {
                           if (isAccessible) {
-                            rememberDetailOrigin();
                             setSelectedProjectId(sprintItem.projectId);
-                            setOpenedSprintId(sprintItem.id);
+                            openDetail("sprints", sprintItem.id);
                           }
                         }}
                       >

@@ -77,7 +77,16 @@ class TeamAdmin(admin.ModelAdmin):
 
 @admin.register(Sprint)
 class SprintAdmin(admin.ModelAdmin):
-    list_display = ["name", "project", "status", "importance", "start_date", "end_date"]
+    list_display = [
+        "name",
+        "project",
+        "status",
+        "importance",
+        "capacity_hours",
+        "focus_area",
+        "start_date",
+        "end_date",
+    ]
     list_filter = ["status", "importance", "project"]
     search_fields = ["name", "goal", "project__name"]
     autocomplete_fields = ["project"]

@@ -68,6 +68,10 @@ Su macOS/Linux usare `cp .env.example .env`. Il valore di esempio è adatto
 solo allo sviluppo. In produzione impostare una chiave casuale, disabilitare
 `DJANGO_DEBUG` e configurare host, CORS e HTTPS.
 
+`VITE_API_BASE_URL` indica al frontend l'indirizzo del backend;
+`DJANGO_TOKEN_MAX_AGE_SECONDS` controlla la durata massima del token sia nel
+cookie sia lato server (8 ore nell'esempio).
+
 Creare database, tabelle e dati demo:
 
 ```bash
@@ -143,6 +147,10 @@ curl -X POST http://127.0.0.1:3000/api/auth/logout \
 ```
 
 Ogni nuovo login revoca il token precedente dell'utente.
+I token scadono anche lato server: una richiesta con un token oltre la durata
+configurata riceve `401`, il token viene revocato e il frontend richiede un
+nuovo login. Un utente autenticato ma privo dei permessi necessari riceve
+invece `403`.
 
 ## Endpoint principali
 
@@ -165,6 +173,21 @@ curl "http://127.0.0.1:3000/api/tasks?project=1&status=in_progress&search=invoic
 ```
 
 La documentazione Swagger elenca parametri, payload e risposte aggiornati.
+Le liste sono paginate (20 elementi per impostazione predefinita) e accettano
+`page` e `page_size`, fino a 100 elementi. Il payload usa la forma DRF
+`count`, `next`, `previous`, `results`. Lo snapshot `/api/workspace` non è
+paginato perché serve ad aggiornare in modo atomico la dashboard.
+
+I dettagli principali hanno URL apribili direttamente:
+
+- `/projects/<id>`;
+- `/sprints/<id>`;
+- `/people/<id>`.
+
+Il ritorno alla lista conserva ricerca e filtri nella query string; il tasto
+Indietro del browser ripristina inoltre la schermata precedente. Un ID
+inesistente o non autorizzato torna alla lista di riferimento con un messaggio
+controllato.
 
 ## Permessi e sicurezza
 
@@ -190,7 +213,8 @@ npm run build
 ```
 
 I test coprono autenticazione, revoca token, permessi, scope dei dati,
-validazioni, errori JSON, filtri e CRUD principali.
+scadenza token, paginazione, validazioni, errori JSON, filtri, persistenza dei
+campi di pianificazione sprint e CRUD principali.
 
 ## Modello dati
 

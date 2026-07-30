@@ -112,6 +112,8 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "EXCEPTION_HANDLER": "pulse.exceptions.api_exception_handler",
+    "DEFAULT_PAGINATION_CLASS": "pulse.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 20,
 }
 
 SPECTACULAR_SETTINGS = {
@@ -121,4 +123,5 @@ SPECTACULAR_SETTINGS = {
 }
 
 TOKEN_COOKIE_NAME = "taas_pulse_token"
-TOKEN_COOKIE_MAX_AGE = 8 * 60 * 60
+TOKEN_MAX_AGE_SECONDS = int(os.getenv("DJANGO_TOKEN_MAX_AGE_SECONDS", str(8 * 60 * 60)))
+TOKEN_COOKIE_MAX_AGE = TOKEN_MAX_AGE_SECONDS

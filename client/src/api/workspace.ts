@@ -1,6 +1,8 @@
 import type { Project, Sprint, Task, Team, TeamMember } from "../types";
 
-const API_BASE_URL = "http://127.0.0.1:3000";
+const API_BASE_URL = (
+  import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:3000"
+).replace(/\/$/, "");
 
 // Forma dati usata dalla UI React. Il backend traduce lo schema SQLite
 // snake_case in queste chiavi camelCase, cosi i componenti non dipendono
@@ -41,6 +43,9 @@ async function requestWorkspaceResponse(path: string, init?: RequestInit) {
   const data = (await response.json()) as WorkspaceResponse;
 
   if (!response.ok) {
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent("taas-pulse:session-expired"));
+    }
     // Il backend restituisce messaggi gia pensati per l'utente/admin.
     // Se manca `error`, usiamo un fallback generico.
     throw new Error(data.error ?? "Workspace request failed");

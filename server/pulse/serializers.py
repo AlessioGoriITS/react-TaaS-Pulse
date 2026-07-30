@@ -146,6 +146,19 @@ class SprintSerializer(serializers.ModelSerializer):
     endDate = serializers.DateField(source="end_date")
     status = serializers.ChoiceField(choices=list(SPRINT_STATUS_FROM_API))
     importance = serializers.ChoiceField(choices=list(IMPORTANCE_FROM_API), required=False)
+    capacityHours = serializers.IntegerField(
+        source="capacity_hours",
+        min_value=1,
+        required=False,
+    )
+    focusArea = serializers.CharField(source="focus_area", allow_blank=True, required=False)
+    definitionOfDone = serializers.CharField(
+        source="definition_of_done",
+        allow_blank=True,
+        required=False,
+    )
+    riskNotes = serializers.CharField(source="risk_notes", allow_blank=True, required=False)
+    backlogNotes = serializers.CharField(source="backlog_notes", allow_blank=True, required=False)
 
     class Meta:
         model = Sprint
@@ -159,6 +172,11 @@ class SprintSerializer(serializers.ModelSerializer):
             "endDate",
             "status",
             "importance",
+            "capacityHours",
+            "focusArea",
+            "definitionOfDone",
+            "riskNotes",
+            "backlogNotes",
         ]
         read_only_fields = ["id", "goal"]
 
